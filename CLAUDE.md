@@ -1,4 +1,8 @@
-# Alex - AI in Production Course Project Guide
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Alex - AI in Production Course Project Guide
 
 ## Project Overview
 
@@ -115,7 +119,7 @@ alex/
   - Use AWS Bedrock with Nova Pro model
   - Integrate Playwright MCP server for web browsing
   - Set up EventBridge scheduler (optional)
-  - **IMPORTANT**: Update `backend/researcher/server.py` with your region and model
+  - Model and region come from `terraform/4_researcher/terraform.tfvars` (`researcher_model`, `bedrock_region`), not from edits to `server.py`
 
 ### Week 4: Portfolio Management Platform
 
@@ -252,6 +256,48 @@ Encourage students to:
 - Use `terraform output` to see deployed resource details
 - Test incrementally (don't deploy everything at once)
 - Keep AWS costs in mind (remind them to destroy when not actively working)
+
+---
+
+## Commands
+
+Each Python directory is its own uv project. `cd` into it first, because the scripts use relative paths such as `../database`. Scripts load the root `.env` (template: `.env.example`) with `load_dotenv(override=True)`.
+
+| Task | Run from | Command |
+|---|---|---|
+| Test one agent locally (Lambdas mocked) | `backend/<agent>` | `uv run test_simple.py` |
+| Test all agents locally | `backend` | `uv run test_simple.py` |
+| Test one deployed agent | `backend/<agent>` | `uv run test_full.py` |
+| End-to-end test through SQS | `backend` | `uv run test_full.py` |
+| Package one Lambda (Docker must be running) | `backend/<agent>` | `uv run package_docker.py` → `<agent>_lambda.zip` |
+| Package all 5 agent Lambdas | `backend` | `uv run package_docker.py` |
+| Redeploy agent Lambdas (taints them, then `terraform apply -auto-approve` in `terraform/6_agents`) | `backend` | `uv run deploy_all_lambdas.py [--package]` |
+| Tail all agents' CloudWatch logs | `backend` | `uv run watch_agents.py` |
+| Migrate / seed / reset DB | `backend/database` | `uv run run_migrations.py`, `uv run seed_data.py`, `uv run reset_db.py --with-test-data [--skip-drop]` |
+| Run frontend (:3000) and FastAPI (:8000) locally | `scripts` | `uv run run_local.py` |
+| Deploy Part 7 (API Lambda, Next build, S3 upload, CloudFront invalidation) | `scripts` | `uv run deploy.py` |
+| Lint / build frontend | `frontend` | `npm run lint`, `npm run build` |
+
+There is no pytest, ruff or JS test suite. The `test_*.py` files are standalone scripts.
+
+## Code Architecture Notes (non-obvious, spans multiple files)
+
+- **Analysis job flow:**
+  1. The frontend calls `POST /api/analyze` (`backend/api/main.py`, served on Lambda through Mangum).
+  2. That endpoint creates a `jobs` row and sends the bare `job_id` as the SQS message body.
+  3. The Planner Lambda (`backend/planner/lambda_handler.py`) picks it up and runs these steps as plain code, not agent tools: tag missing instruments (calls the Tagger Lambda directly), refresh prices (`market.py`/`prices.py`, Polygon), load a portfolio summary.
+  4. Only then does the Planner agent run. Its tools `boto3 lambda.invoke` Reporter, Charter and Retirement with `{"job_id": ...}`.
+  5. Each agent loads its own data from Aurora and writes its result back onto the job row. The frontend polls `GET /api/jobs/{job_id}`.
+- **`MOCK_LAMBDAS=true`** makes the Planner log Lambda invokes instead of making them. The `test_simple.py` scripts set it.
+- **Shared DB package:** `backend/database` (distribution name `alex-database`) installs as the top-level module **`src`**. Imports look like `from src import Database` and `from src.schemas import JobCreate`. It talks to Aurora only through the RDS Data API (boto3), with no VPC or SQL driver. The schema is in `backend/database/migrations/001_schema.sql`.
+- **Lambda packaging copies an explicit file list.** Each `backend/<agent>/package_docker.py` `shutil.copy`s named modules into the zip. A new module added to an agent must also be added there, or the deployed Lambda fails with `ModuleNotFoundError` even though `test_simple.py` passes. Dependencies come from `uv export` of that agent's `uv.lock`, are installed inside `public.ecr.aws/lambda/python:3.12` (linux/amd64), and `../database` is installed with `--no-deps`.
+- **Model config differs by service:**
+  - The Lambda agents (`terraform/6_agents`) use `BEDROCK_MODEL_ID` (no `bedrock/` prefix) plus `BEDROCK_REGION`.
+  - The Researcher (`terraform/4_researcher`) uses `RESEARCHER_MODEL`, which is a full LiteLLM string, plus `BEDROCK_REGION`. It defaults to `bedrock/converse/openai.gpt-oss-120b-1:0`, not Nova Pro.
+- **Reporter guardrail:** `backend/reporter/judge.py` runs an LLM-as-judge on the report. If the score is below `GUARD_AGAINST_SCORE` (0.3), the report is replaced with an apology. The judge runs **only when LangFuse is configured** (`observability.py`, enabled by `LANGFUSE_SECRET_KEY`).
+- **Frontend:**
+  - Next.js Pages Router with `output: 'export'`, so it is a static site with no SSR and no API routes.
+  - `lib/config.ts` sends API calls to `http://localhost:8000` on localhost. Elsewhere it uses relative `/api/*` paths, which CloudFront routes to API Gateway.
 
 ---
 
