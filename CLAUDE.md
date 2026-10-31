@@ -222,6 +222,9 @@ Before writing any code, check these common issues:
 - Nova Pro requires inference profiles
 - Cross-region resource access may need models to have been approved in Bedrock in multiple regions
 - **Check**: Region consistency across configuration files
+- `terraform/2_sagemaker/variables.tf` hardcodes the HuggingFace image to **`us-east-1`** ECR. In any other region, set `sagemaker_image_uri` in tfvars to `763104351884.dkr.ecr.<region>.amazonaws.com/` + the same repo:tag, or `CreateModel` fails with "Cross region ECR image pulls are not allowed"
+- Guide CLI commands omit `--region`, so `aws configure get region` must match `DEFAULT_AWS_REGION` or they report resources as "not found"
+- Changing `aws_region` in an already-applied terraform directory: `terraform destroy` first, or the old region's resources are left running but untracked
 
 **Model Access Not Granted**
 - AWS Bedrock requires explicit model access requests
@@ -265,6 +268,10 @@ Each Python directory is its own uv project. `cd` into it first, because the scr
 
 | Task | Run from | Command |
 |---|---|---|
+| Package ingest Lambda (Guide 3) | `backend/ingest` | `uv run package.py` |
+| Test ingest / search / wipe S3 Vectors | `backend/ingest` | `uv run test_ingest_s3vectors.py`, `uv run test_search_s3vectors.py ["query"]`, `uv run cleanup_s3vectors.py` |
+| Build + push Researcher image to ECR and deploy App Runner (Docker must be running) | `backend/researcher` | `uv run deploy.py` |
+| Test deployed Researcher | `backend/researcher` | `uv run test_research.py ["topic"]` |
 | Test one agent locally (Lambdas mocked) | `backend/<agent>` | `uv run test_simple.py` |
 | Test all agents locally | `backend` | `uv run test_simple.py` |
 | Test one deployed agent | `backend/<agent>` | `uv run test_full.py` |
@@ -276,6 +283,7 @@ Each Python directory is its own uv project. `cd` into it first, because the scr
 | Migrate / seed / reset DB | `backend/database` | `uv run run_migrations.py`, `uv run seed_data.py`, `uv run reset_db.py --with-test-data [--skip-drop]` |
 | Run frontend (:3000) and FastAPI (:8000) locally | `scripts` | `uv run run_local.py` |
 | Deploy Part 7 (API Lambda, Next build, S3 upload, CloudFront invalidation) | `scripts` | `uv run deploy.py` |
+| Tear down Part 7 (empties the S3 bucket, then `terraform destroy`) | `scripts` | `uv run destroy.py` |
 | Lint / build frontend | `frontend` | `npm run lint`, `npm run build` |
 
 There is no pytest, ruff or JS test suite. The `test_*.py` files are standalone scripts.
@@ -294,7 +302,7 @@ There is no pytest, ruff or JS test suite. The `test_*.py` files are standalone 
 - **Model config differs by service:**
   - The Lambda agents (`terraform/6_agents`) use `BEDROCK_MODEL_ID` (no `bedrock/` prefix) plus `BEDROCK_REGION`.
   - The Researcher (`terraform/4_researcher`) uses `RESEARCHER_MODEL`, which is a full LiteLLM string, plus `BEDROCK_REGION`. It defaults to `bedrock/converse/openai.gpt-oss-120b-1:0`, not Nova Pro.
-- **Reporter guardrail:** `backend/reporter/judge.py` runs an LLM-as-judge on the report. If the score is below `GUARD_AGAINST_SCORE` (0.3), the report is replaced with an apology. The judge runs **only when LangFuse is configured** (`observability.py`, enabled by `LANGFUSE_SECRET_KEY`).
+- **Reporter guardrail:** `backend/reporter/judge.py` runs an LLM-as-judge on the report. If the score is below `GUARD_AGAINST_SCORE` (0.3, defined in `reporter/lambda_handler.py`), the report is replaced with an apology. The judge runs **only when LangFuse is configured** (`observability.py`, enabled by `LANGFUSE_SECRET_KEY`).
 - **Frontend:**
   - Next.js Pages Router with `output: 'export'`, so it is a static site with no SSR and no API routes.
   - `lib/config.ts` sends API calls to `http://localhost:8000` on localhost. Elsewhere it uses relative `/api/*` paths, which CloudFront routes to API Gateway.
