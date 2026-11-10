@@ -57,107 +57,14 @@ resource "aws_secretsmanager_secret_version" "db_credentials" {
   })
 }
 
-# DB Subnet Group (using default VPC)
-data "aws_vpc" "default" {
-  default = true
-}
-
-data "aws_subnets" "default" {
-  filter {
-    name   = "vpc-id"
-    values = [data.aws_vpc.default.id]
-  }
-}
-
-resource "aws_db_subnet_group" "aurora" {
-  name       = "alex-aurora-subnet-group"
-  subnet_ids = data.aws_subnets.default.ids
-  
-  tags = {
-    Project = "alex"
-    Part    = "5"
-  }
-}
-
-# Security group for Aurora
-resource "aws_security_group" "aurora" {
-  name        = "alex-aurora-sg"
-  description = "Security group for Alex Aurora cluster"
-  vpc_id      = data.aws_vpc.default.id
-  
-  # Allow PostgreSQL access from within VPC
-  ingress {
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = [data.aws_vpc.default.cidr_block]
-  }
-  
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  
-  tags = {
-    Project = "alex"
-    Part    = "5"
-  }
-}
-
 # Aurora Serverless v2 Cluster
-resource "aws_rds_cluster" "aurora" {
-  cluster_identifier     = "alex-aurora-cluster"
-  engine                 = "aurora-postgresql"
-  engine_mode            = "provisioned"
-  engine_version         = "15.12"
-  database_name          = "alex"
-  master_username        = "alexadmin"
-  master_password        = random_password.db_password.result
-  
-  # Serverless v2 scaling configuration
-  serverlessv2_scaling_configuration {
-    min_capacity = var.min_capacity
-    max_capacity = var.max_capacity
-  }
-  
-  # Enable Data API
-  enable_http_endpoint = true
-  
-  # Networking
-  db_subnet_group_name   = aws_db_subnet_group.aurora.name
-  vpc_security_group_ids = [aws_security_group.aurora.id]
-  
-  # Backup and maintenance
-  backup_retention_period   = 7
-  preferred_backup_window   = "03:00-04:00"
-  preferred_maintenance_window = "sun:04:00-sun:05:00"
-  
-  # Development settings
-  skip_final_snapshot = true
-  apply_immediately   = true
-  
-  tags = {
-    Project = "alex"
-    Part    = "5"
-  }
-}
-
-# Aurora Serverless v2 Instance
-resource "aws_rds_cluster_instance" "aurora" {
-  identifier          = "alex-aurora-instance-1"
-  cluster_identifier  = aws_rds_cluster.aurora.id
-  instance_class      = "db.serverless"
-  engine              = aws_rds_cluster.aurora.engine
-  engine_version      = aws_rds_cluster.aurora.engine_version
-  
-  performance_insights_enabled = false  # Save costs in development
-  
-  tags = {
-    Project = "alex"
-    Part    = "5"
-  }
+# AWS Free plan only allows Aurora "express" clusters (no VPC, IAM login only), which
+# Terraform can't create. The cluster is created with the AWS CLI, Data API enabled, and the
+# alexadmin user + alex database added by backend/database/setup_express_db.py
+# (steps in notes/knowledge-article.md); Terraform just looks it up.
+# On a paid plan, restore the course version: git show fbab9eb:terraform/5_database/main.tf
+data "aws_rds_cluster" "aurora" {
+  cluster_identifier = "alex-aurora-cluster"
 }
 
 # IAM role for Lambda to access Aurora Data API
@@ -200,7 +107,7 @@ resource "aws_iam_role_policy" "lambda_aurora_policy" {
           "rds-data:CommitTransaction",
           "rds-data:RollbackTransaction"
         ]
-        Resource = aws_rds_cluster.aurora.arn
+        Resource = data.aws_rds_cluster.aurora.arn
       },
       {
         Effect = "Allow"

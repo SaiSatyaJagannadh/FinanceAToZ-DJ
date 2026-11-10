@@ -1,11 +1,11 @@
 output "aurora_cluster_arn" {
   description = "ARN of the Aurora cluster"
-  value       = aws_rds_cluster.aurora.arn
+  value       = data.aws_rds_cluster.aurora.arn
 }
 
 output "aurora_cluster_endpoint" {
   description = "Writer endpoint for the Aurora cluster"
-  value       = aws_rds_cluster.aurora.endpoint
+  value       = data.aws_rds_cluster.aurora.endpoint
 }
 
 output "aurora_secret_arn" {
@@ -15,17 +15,12 @@ output "aurora_secret_arn" {
 
 output "database_name" {
   description = "Name of the database"
-  value       = aws_rds_cluster.aurora.database_name
+  value       = "alex"
 }
 
 output "lambda_role_arn" {
   description = "ARN of the IAM role for Lambda functions to access Aurora"
   value       = aws_iam_role.lambda_aurora_role.arn
-}
-
-output "data_api_enabled" {
-  description = "Status of Data API"
-  value       = aws_rds_cluster.aurora.enable_http_endpoint ? "Enabled" : "Disabled"
 }
 
 output "setup_instructions" {
@@ -35,17 +30,17 @@ output "setup_instructions" {
     ✅ Aurora Serverless v2 cluster deployed successfully!
     
     Database Details:
-    - Cluster: ${aws_rds_cluster.aurora.cluster_identifier}
-    - Database: ${aws_rds_cluster.aurora.database_name}
+    - Cluster: ${data.aws_rds_cluster.aurora.cluster_identifier}
+    - Database: alex
     - Data API: Enabled
     
     Add the following to your .env file:
-    AURORA_CLUSTER_ARN=${aws_rds_cluster.aurora.arn}
+    AURORA_CLUSTER_ARN=${data.aws_rds_cluster.aurora.arn}
     AURORA_SECRET_ARN=${aws_secretsmanager_secret.db_credentials.arn}
     
     Test the Data API connection:
     aws rds-data execute-statement \
-      --resource-arn ${aws_rds_cluster.aurora.arn} \
+      --resource-arn ${data.aws_rds_cluster.aurora.arn} \
       --secret-arn ${aws_secretsmanager_secret.db_credentials.arn} \
       --database alex \
       --sql "SELECT version()"

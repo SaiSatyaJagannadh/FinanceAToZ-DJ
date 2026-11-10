@@ -1,8 +1,8 @@
-# Alex Project — Knowledge Article (Guides 1–3)
+# Alex Project — Knowledge Article (Guides 1–5)
 
 Running log of what has been deployed, the workflow followed, and every problem hit along the way with its root cause and fix.
 
-_Last updated: 2026-10-31_
+_Last updated: 2026-11-10_
 
 ---
 
@@ -13,7 +13,8 @@ _Last updated: 2026-10-31_
 | 1 — Permissions | IAM user `AIEngineer`, AWS CLI configured | ✅ Done |
 | 2 — SageMaker | Serverless embedding endpoint `alex-embedding-endpoint` (all-MiniLM-L6-v2) | ✅ Done, `InService`, tested |
 | 3 — Ingestion | S3 Vectors bucket, ingest Lambda, API Gateway + API key | ✅ Deployed, API test returns HTTP 200 |
-| 4 — Researcher | App Runner research agent | ⏭️ Next |
+| 4 — Researcher | Researcher agent (Lambda + function URL; guide still says App Runner) | ✅ Deployed, `/health` OK |
+| 5 — Database | Aurora Serverless v2 **express** cluster (Free plan), Data API | ✅ Created, migrations run |
 
 ## Environment
 
@@ -132,6 +133,41 @@ Changing `aws_region` in a directory that is already applied would make Terrafor
 No. It only contains the embedding numbers from the test call. It's throwaway output, so delete it rather than commit it.
 
 The sensitive files are already excluded by `.gitignore`: `.env` (keys), `*.tfstate` (account ID, ARNs), `*.tfvars`, `.terraform/`. Check `git status` before every commit.
+
+### 7. Aurora on the AWS Free plan (Guide 5)
+
+**Errors, in order**
+```
+FreeTierRestrictionError: The specified backup retention period exceeds the maximum available to free tier customers.
+FreeTierRestrictionError: To use Aurora clusters with free plan accounts you need to set WithExpressConfiguration.
+```
+
+**Root cause:** the account is on the AWS **Free plan** (`aws freetier get-account-plan-state`). It only allows Aurora **express** clusters: no VPC, IAM-token login only, no master password. Terraform has no `with_express_configuration` argument (checked up to provider 6.73), so the cluster can't be created by Terraform. The Data API, which all the course code uses, still works once it's enabled and has a password user.
+
+**Fix (one-time, or after recreating the cluster):**
+
+1. Add to IAM policy `AlexRDSCustomPolicy`: `"rds:Enable*"` and `"rds-db:connect"`. The console rejects the exact name `rds:EnableInternetAccessGateway` (not in IAM's action list yet, but AWS checks it), so use the wildcard.
+2. Create the cluster (no `--database-name`; express rejects it):
+   ```bash
+   aws rds create-db-cluster --db-cluster-identifier alex-aurora-cluster --engine aurora-postgresql \
+     --with-express-configuration --serverless-v2-scaling-configuration MinCapacity=0.5,MaxCapacity=1
+   aws rds wait db-cluster-available --db-cluster-identifier alex-aurora-cluster
+   aws rds enable-http-endpoint --resource-arn <cluster ARN>
+   ```
+3. Create the `alexadmin` user (password from the Terraform secret) and the `alex` database:
+   ```bash
+   cd backend/database && uv run setup_express_db.py
+   ```
+4. `terraform/5_database/main.tf` now **looks up** the cluster (`data "aws_rds_cluster"`) instead of creating it, so `terraform apply` only manages the secret and the Lambda IAM role. Then copy `aurora_cluster_arn` / `aurora_secret_arn` from `terraform output` into `.env` and continue the guide at `uv run test_data_api.py`.
+
+**Deleting the cluster to save credits:** `terraform destroy` no longer removes it. Use:
+```bash
+aws rds delete-db-instance --db-instance-identifier alex-aurora-cluster-instance-1
+aws rds delete-db-cluster --db-cluster-identifier alex-aurora-cluster --skip-final-snapshot
+```
+Recreate later with steps 2–3, then rerun `run_migrations.py` and `seed_data.py`.
+
+**On a paid plan** none of this is needed: `git show fbab9eb:terraform/5_database/main.tf` is the course version.
 
 ---
 
