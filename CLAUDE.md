@@ -61,7 +61,7 @@ alex/
 │   ├── reporter/        # Portfolio analysis agent
 │   ├── charter/         # Visualization agent
 │   ├── retirement/      # Retirement projection agent
-│   ├── researcher/      # Market research agent (App Runner)
+│   ├── researcher/      # Market research agent (Lambda container image)
 │   ├── ingest/          # Document ingestion Lambda
 │   ├── database/        # Shared database library
 │   └── api/             # FastAPI backend for frontend
@@ -74,7 +74,7 @@ alex/
 ├── terraform/           # Infrastructure as Code (IMPORTANT: Independent directories)
 │   ├── 2_sagemaker/     # SageMaker embedding endpoint
 │   ├── 3_ingestion/     # S3 Vectors and ingest Lambda
-│   ├── 4_researcher/    # App Runner research service
+│   ├── 4_researcher/    # Researcher Lambda + function URL, ECR, scheduler
 │   ├── 5_database/      # Aurora Serverless v2
 │   ├── 6_agents/        # Multi-agent Lambda functions
 │   ├── 7_frontend/      # CloudFront, S3, API Gateway
@@ -115,7 +115,7 @@ alex/
 
 **Day 5 - Research Agent**
 - **Guide 4: Researcher Agent** (4_researcher.md)
-  - Deploy autonomous research agent on App Runner
+  - Deploy autonomous research agent as a Lambda container image with a function URL (the guide text still says App Runner; the code moved to Lambda)
   - Use AWS Bedrock with Nova Pro model
   - Integrate Playwright MCP server for web browsing
   - Set up EventBridge scheduler (optional)
@@ -270,7 +270,7 @@ Each Python directory is its own uv project. `cd` into it first, because the scr
 |---|---|---|
 | Package ingest Lambda (Guide 3) | `backend/ingest` | `uv run package.py` |
 | Test ingest / search / wipe S3 Vectors | `backend/ingest` | `uv run test_ingest_s3vectors.py`, `uv run test_search_s3vectors.py ["query"]`, `uv run cleanup_s3vectors.py` |
-| Build + push Researcher image to ECR and deploy App Runner (Docker must be running) | `backend/researcher` | `uv run deploy.py` |
+| Build + push Researcher image to ECR and update the Lambda (Docker must be running) | `backend/researcher` | `uv run deploy.py` |
 | Test deployed Researcher | `backend/researcher` | `uv run test_research.py ["topic"]` |
 | Test one agent locally (Lambdas mocked) | `backend/<agent>` | `uv run test_simple.py` |
 | Test all agents locally | `backend` | `uv run test_simple.py` |
@@ -509,6 +509,18 @@ The most common issues relate to AWS region choices! Check environment variables
 1. Wait for cluster to reach "available" status
 2. Verify Data API is enabled in RDS console
 3. Run `terraform output` in `5_database` to get correct ARNs
+
+### Issue 6: AWS Free plan account restrictions
+
+**Symptoms**: App Runner `SubscriptionRequiredException`; Aurora `FreeTierRestrictionError` (backup retention, `WithExpressConfiguration`)
+
+**Check**: `aws freetier get-account-plan-state`
+
+**In this repo** (account is on the Free plan):
+- Aurora must be an **express** cluster (no VPC, IAM-token login only, backup retention ≤ 1). Terraform can't create one, so `terraform/5_database/main.tf` only *looks up* `alex-aurora-cluster` (`data "aws_rds_cluster"`) and still manages the secret and Lambda IAM role. The cluster is created with `aws rds create-db-cluster --with-express-configuration`, then `backend/database/setup_express_db.py` creates the `alexadmin` password user (for the Data API) and the `alex` database. Full steps: `notes/knowledge-article.md` §7.
+- `terraform destroy` in `5_database` does **not** delete the cluster; use `aws rds delete-db-instance` then `aws rds delete-db-cluster --skip-final-snapshot`.
+- Paid-plan course version of `main.tf`: `git show fbab9eb:terraform/5_database/main.tf`.
+- Change IAM policies only via the console, with the user (`AlexRDSCustomPolicy` needs `rds:Enable*` and `rds-db:connect`).
 4. Update environment variables with actual ARNs
 
 ---
@@ -527,7 +539,7 @@ The most common issues relate to AWS region choices! Check environment variables
 - API Gateway with API key
 
 **Guide 4**: Research Agent
-- App Runner service (Researcher)
+- Researcher Lambda (container image) with function URL
 - ECR repository
 - EventBridge scheduler (optional)
 
