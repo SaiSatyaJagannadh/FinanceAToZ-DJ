@@ -1,4 +1,4 @@
-import { useUser, UserButton, Protect } from "@clerk/nextjs";
+import { useUser, UserButton, Show } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { ReactNode } from "react";
@@ -15,8 +15,25 @@ export default function Layout({ children }: LayoutProps) {
   // Helper to determine if a link is active
   const isActive = (path: string) => router.pathname === path;
 
+  const navLinks = [
+    ["/dashboard", "Dashboard"],
+    ["/accounts", "Accounts"],
+    ["/advisor-team", "Advisor Team"],
+    ["/analysis", "Analysis"],
+  ].map(([href, label]) => (
+    <Link
+      key={href}
+      href={href}
+      className={`px-3 py-1.5 rounded-md text-sm font-medium whitespace-nowrap transition-colors ${
+        isActive(href) ? "bg-white/15 text-white" : "text-white/70 hover:text-white hover:bg-white/10"
+      }`}
+    >
+      {label}
+    </Link>
+  ));
+
   return (
-    <Protect fallback={
+    <Show when="signed-in" fallback={
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <p className="text-gray-600">Redirecting to sign in...</p>
@@ -25,114 +42,26 @@ export default function Layout({ children }: LayoutProps) {
     }>
       <div className="min-h-screen bg-gray-50 flex flex-col">
         {/* Navigation */}
-        <nav className="bg-white shadow-sm border-b">
+        <nav className="sticky top-0 z-40 bg-dark text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
-              {/* Logo and Brand */}
               <div className="flex items-center gap-8">
-                <Link href="/dashboard" className="flex items-center">
-                  <h1 className="text-xl font-bold text-dark">
-                    Alex <span className="text-primary">AI Financial Advisor</span>
-                  </h1>
+                <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+                  <span className="w-8 h-8 rounded-lg bg-primary grid place-items-center font-bold">A</span>
+                  Alex
                 </Link>
-
-                {/* Navigation Links */}
-                <div className="hidden md:flex items-center gap-6">
-                  <Link
-                    href="/dashboard"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/dashboard")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Dashboard
-                  </Link>
-                  <Link
-                    href="/accounts"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/accounts")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Accounts
-                  </Link>
-                  <Link
-                    href="/advisor-team"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/advisor-team")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Advisor Team
-                  </Link>
-                  <Link
-                    href="/analysis"
-                    className={`text-sm font-medium transition-colors ${
-                      isActive("/analysis")
-                        ? "text-primary"
-                        : "text-gray-600 hover:text-primary"
-                    }`}
-                  >
-                    Analysis
-                  </Link>
-                </div>
+                <div className="hidden md:flex items-center gap-1">{navLinks}</div>
               </div>
 
-              {/* User Section */}
               <div className="flex items-center gap-4">
-                <span className="hidden sm:inline text-sm text-gray-600">
+                <span className="hidden sm:inline text-sm text-white/70">
                   {user?.firstName || user?.emailAddresses[0]?.emailAddress}
                 </span>
-                <UserButton afterSignOutUrl="/" />
+                <UserButton />
               </div>
             </div>
 
-            {/* Mobile Navigation */}
-            <div className="md:hidden flex items-center gap-4 pb-3">
-              <Link
-                href="/dashboard"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/dashboard")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/accounts"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/accounts")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Accounts
-              </Link>
-              <Link
-                href="/advisor-team"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/advisor-team")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Advisor Team
-              </Link>
-              <Link
-                href="/analysis"
-                className={`text-sm font-medium transition-colors ${
-                  isActive("/analysis")
-                    ? "text-primary"
-                    : "text-gray-600 hover:text-primary"
-                }`}
-              >
-                Analysis
-              </Link>
-            </div>
+            <div className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto">{navLinks}</div>
           </div>
         </nav>
 
@@ -163,6 +92,6 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </footer>
       </div>
-    </Protect>
+    </Show>
   );
 }
