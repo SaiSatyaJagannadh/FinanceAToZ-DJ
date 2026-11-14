@@ -216,6 +216,7 @@ Before writing any code, check these common issues:
 - Each terraform directory needs its `terraform.tfvars` file configured
 - Missing or incorrect variables cause cryptic errors
 - **Check**: Does `terraform.tfvars` exist? Are all required variables set?
+- tfvars names are lowercase (`aurora_secret_arn`), unlike `.env` (`AURORA_SECRET_ARN`). Pasting `.env` lines leaves the variable unset, so `terraform apply` prompts for it, and the student's `yes` becomes the value (e.g. `MalformedPolicyDocument: Resource yes must be in ARN format`). If apply prompts for a variable, the tfvars name is wrong
 
 **AWS Region Mismatches**
 - Bedrock models may only be available in specific regions
