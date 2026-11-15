@@ -68,7 +68,7 @@ export default function StockDetails({ r }: { r: StockResult }) {
                     If growth averages <strong>{base.growthPct > 0 ? "+" : ""}{base.growthPct}%/yr</strong> (base case),{" "}
                     {money(r.projection.currentPrice)} becomes:
                   </p>
-                  <div className="grid grid-cols-4 gap-2 mb-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                     {[1, 3, 5, 10].map((y) => {
                       const p = r.projection.currentPrice * Math.pow(1 + base.growthPct / 100, y);
                       return <Metric key={y} k={`In ${y} year${y > 1 ? "s" : ""}`} v={`${money(p)} (${((p / r.projection.currentPrice - 1) * 100).toFixed(0)}%)`} />;
@@ -129,7 +129,7 @@ export default function StockDetails({ r }: { r: StockResult }) {
               );
             })()}
             {r.priceTargets?.mean && (
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <Metric k="Low target" v={money(r.priceTargets.low)} />
                 <Metric k="Mean target" v={money(r.priceTargets.mean)} />
                 <Metric k="High target" v={money(r.priceTargets.high)} />
@@ -232,7 +232,7 @@ export default function StockDetails({ r }: { r: StockResult }) {
 
         {tab === "Conviction" && (
           <>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               <Metric k="Conviction score" v={`${mf.score ?? "–"}/100`} />
               <Metric k="Sentiment" v={label(mf.sentiment || "neutral")} />
               <Metric k="Holding percentile" v={`${mf.holdingPercentile ?? "–"}`} />

@@ -347,15 +347,15 @@ export default function AdvisorTeam() {
       <Layout>
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-white rounded-lg shadow px-8 py-6 mb-8">
-            <h1 className="text-3xl font-bold text-dark mb-2">Your AI Advisory Team</h1>
+          <div className="bg-white rounded-lg shadow px-4 py-5 sm:px-8 sm:py-6 mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-dark mb-2">Your AI Advisory Team</h1>
             <p className="text-gray-600">
               Meet your team of specialized AI agents that work together to provide comprehensive financial analysis.
             </p>
           </div>
 
           {snapshot && (
-            <div className="bg-white rounded-lg shadow px-8 py-6 mb-8">
+            <div className="bg-white rounded-lg shadow px-4 py-5 sm:px-8 sm:py-6 mb-8">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
                   <h2 className="text-xl font-semibold text-dark">What your team will analyze</h2>
@@ -434,7 +434,7 @@ export default function AdvisorTeam() {
             ))}
           </div>
 
-          <div className="bg-white rounded-lg shadow px-8 py-6">
+          <div className="bg-white rounded-lg shadow px-4 py-5 sm:px-8 sm:py-6">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-semibold text-dark">Analysis Center</h2>
               <button

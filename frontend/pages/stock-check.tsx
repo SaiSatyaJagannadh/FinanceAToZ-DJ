@@ -15,7 +15,7 @@ export default function StockCheckPage() {
       </Head>
       <Layout>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-          <h1 className="text-3xl font-bold text-dark">Stock Check</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-dark">Stock Check</h1>
           <p className="mt-2 text-gray-600">
             Score any US or Indian stock on fundamentals, growth, technicals, institutional conviction and safety,
             then dig into price projections, analyst calls, upcoming announcements and the latest news.

@@ -392,14 +392,14 @@ export default function Dashboard() {
       </Head>
       <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-dark mb-8">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-dark mb-8">Dashboard</h1>
 
         {loading ? (
           // Loading skeleton
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-white rounded-lg shadow p-6">
+                <div key={i} className="bg-white rounded-lg shadow p-4 sm:p-6">
                   <Skeleton className="h-4 w-3/4 mx-auto mb-3" />
                   <Skeleton className="h-8 w-1/2 mx-auto" />
                 </div>
@@ -443,7 +443,7 @@ export default function Dashboard() {
 
             {/* Portfolio Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 text-center">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-center">
             <h3 className="text-sm font-medium text-gray-500 mb-3">Total Portfolio Value</h3>
             <p className="text-3xl font-bold text-primary">
               ${totalValue % 1 === 0
@@ -452,12 +452,12 @@ export default function Dashboard() {
             </p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 text-center">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-center">
             <h3 className="text-sm font-medium text-gray-500 mb-3">Number of Accounts</h3>
-            <p className="text-3xl font-bold text-dark">{accounts.length}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-dark">{accounts.length}</p>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <h3 className="text-sm font-medium text-gray-500 mb-2 text-center">Asset Allocation</h3>
             {pieChartData.length > 0 ? (
               <div className="h-24">
@@ -485,9 +485,9 @@ export default function Dashboard() {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 text-center">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6 text-center">
             <h3 className="text-sm font-medium text-gray-500 mb-3">Last Analysis</h3>
-            <p className="text-3xl font-bold text-dark">
+            <p className="text-2xl sm:text-3xl font-bold text-dark">
               {lastAnalysisDate ? parseUtc(lastAnalysisDate).toLocaleDateString() : "Never"}
             </p>
           </div>
@@ -507,7 +507,7 @@ export default function Dashboard() {
         />
 
         {/* User Settings Section */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-8">
           <h2 className="text-xl font-semibold text-dark mb-6">User Settings</h2>
 
           {loading ? (

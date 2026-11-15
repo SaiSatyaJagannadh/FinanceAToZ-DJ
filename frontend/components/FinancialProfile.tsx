@@ -135,10 +135,10 @@ export default function FinancialProfile({ profile, portfolioValue, onSaved }: P
   return (
     <div className="grid lg:grid-cols-2 gap-6 mb-8">
       {/* FIRE calculator */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
         <h2 className="text-xl font-semibold text-dark">🔥 When can you retire? (FIRE)</h2>
         <p className="text-sm text-gray-500 mt-1">Financial Independence, Retire Early: how long until your investments cover your expenses.</p>
-        <div className="mt-4 grid grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
           {field("Your age", "currentAge")}
           {field("Yearly expenses ($)", "annualExpenses", "What you spend per year")}
           {field("Yearly savings ($)", "annualSavings", "What you invest per year")}
@@ -174,7 +174,7 @@ export default function FinancialProfile({ profile, portfolioValue, onSaved }: P
       </div>
 
       {/* Risk assessment */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
         <h2 className="text-xl font-semibold text-dark">🧭 What kind of investor are you?</h2>
         <p className="text-sm text-gray-500 mt-1">Six quick questions about how you behave with money. The agents tailor advice to your answer.</p>
         <ol className="mt-4 space-y-4">

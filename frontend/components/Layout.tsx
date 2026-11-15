@@ -15,13 +15,14 @@ export default function Layout({ children }: LayoutProps) {
   // Helper to determine if a link is active
   const isActive = (path: string) => router.pathname === path;
 
-  const navLinks = [
-    ["/dashboard", "Dashboard"],
-    ["/accounts", "Accounts"],
-    ["/advisor-team", "Advisor Team"],
-    ["/analysis", "Analysis"],
-    ["/stock-check", "Stock Check"],
-  ].map(([href, label]) => (
+  const links = [
+    ["/dashboard", "Dashboard", "Home"],
+    ["/accounts", "Accounts", "Accounts"],
+    ["/advisor-team", "Advisor Team", "Advisors"],
+    ["/analysis", "Analysis", "Analysis"],
+    ["/stock-check", "Stock Check", "Stocks"],
+  ];
+  const navLinks = links.map(([href, label]) => (
     <Link
       key={href}
       href={href}
@@ -62,7 +63,20 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             </div>
 
-            <div className="md:hidden flex items-center gap-1 pb-3 overflow-x-auto">{navLinks}</div>
+            {/* Phones: all five tabs visible at once, short labels */}
+            <div className="md:hidden grid grid-cols-5 gap-1 pb-3">
+              {links.map(([href, , short]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`py-1.5 rounded-md text-xs font-medium text-center transition-colors ${
+                    isActive(href) ? "bg-white/15 text-white" : "text-white/70 hover:text-white"
+                  }`}
+                >
+                  {short}
+                </Link>
+              ))}
+            </div>
           </div>
         </nav>
 

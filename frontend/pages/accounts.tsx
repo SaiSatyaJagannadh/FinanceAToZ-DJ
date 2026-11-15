@@ -287,13 +287,13 @@ export default function Accounts() {
       </Head>
       <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex justify-between items-center mb-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
             <div>
               <h2 className="text-2xl font-bold text-dark">Investment Accounts</h2>
               <p className="text-sm text-gray-600 mt-1">Manage your investment accounts and portfolios</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowAddModal(true)}
                 className="bg-primary hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
@@ -401,12 +401,12 @@ export default function Accounts() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700">Account Name</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-700 hidden md:table-cell">Type</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Positions</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Cash</th>
-                      <th className="text-right py-3 px-4 font-semibold text-gray-700">Total Value</th>
-                      <th className="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
+                      <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700">Account Name</th>
+                      <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700 hidden md:table-cell">Type</th>
+                      <th className="text-right py-3 px-2 sm:px-4 font-semibold text-gray-700">Positions</th>
+                      <th className="text-right py-3 px-2 sm:px-4 font-semibold text-gray-700 hidden sm:table-cell">Cash</th>
+                      <th className="text-right py-3 px-2 sm:px-4 font-semibold text-gray-700">Total Value</th>
+                      <th className="text-center py-3 px-2 sm:px-4 font-semibold text-gray-700">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -414,16 +414,16 @@ export default function Accounts() {
                       const positionsValue = calculateAccountTotal(account) - Number(account.cash_balance);
                       return (
                         <tr key={account.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                          <td className="py-4 px-4">
+                          <td className="py-3 px-2 sm:py-4 sm:px-4">
                             <div>
                               <p className="font-semibold text-dark">{account.account_name}</p>
                               <p className="text-xs text-gray-500 md:hidden">{account.account_purpose}</p>
                             </div>
                           </td>
-                          <td className="py-4 px-4 hidden md:table-cell">
+                          <td className="py-3 px-2 sm:py-4 sm:px-4 hidden md:table-cell">
                             <span className="text-sm text-gray-600">{account.account_purpose}</span>
                           </td>
-                          <td className="py-4 px-4 text-right">
+                          <td className="py-3 px-2 sm:py-4 sm:px-4 text-right">
                             <div>
                               <p className="font-medium">{account.positions?.length || 0}</p>
                               {positionsValue > 0 && (
@@ -433,15 +433,15 @@ export default function Accounts() {
                               )}
                             </div>
                           </td>
-                          <td className="py-4 px-4 text-right">
+                          <td className="py-3 px-2 sm:py-4 sm:px-4 text-right hidden sm:table-cell">
                             ${Number(account.cash_balance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
-                          <td className="py-4 px-4 text-right">
+                          <td className="py-3 px-2 sm:py-4 sm:px-4 text-right">
                             <p className="font-semibold text-primary">
                               ${calculateAccountTotal(account).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </p>
                           </td>
-                          <td className="py-4 px-4">
+                          <td className="py-3 px-2 sm:py-4 sm:px-4">
                             <div className="flex justify-center gap-2">
                               <button
                                 onClick={() => router.push(`/accounts/${account.id}`)}
@@ -508,8 +508,8 @@ export default function Accounts() {
 
         {/* Add Account Modal */}
         {showAddModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-5 sm:p-6 max-h-[90dvh] overflow-y-auto">
               <h3 className="text-xl font-bold text-dark mb-4">Add New Account</h3>
 
               <div className="space-y-4">

@@ -124,7 +124,7 @@ export default function ChatWidget() {
         <div
           role="dialog"
           aria-label="Ask FinFreedom AI"
-          className="fixed z-50 bottom-20 right-4 left-4 sm:left-auto sm:w-96 h-[min(32rem,calc(100vh-7rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
+          className="fixed z-50 bottom-20 right-4 left-4 sm:left-auto sm:w-96 h-[min(32rem,calc(100dvh-7rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
         >
           <div className="px-4 py-3 bg-dark text-white">
             <p className="font-semibold">Ask FinFreedom AI</p>

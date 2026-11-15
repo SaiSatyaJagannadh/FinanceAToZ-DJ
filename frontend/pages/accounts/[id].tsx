@@ -336,7 +336,7 @@ export default function AccountDetail() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <p className="text-center text-gray-600">Loading account details...</p>
           </div>
         </div>
@@ -348,7 +348,7 @@ export default function AccountDetail() {
     return (
       <Layout>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <p className="text-center text-red-600">Account not found</p>
           </div>
         </div>
@@ -373,7 +373,7 @@ export default function AccountDetail() {
         </div>
 
         {/* Account Details */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
           <div className="flex justify-between items-start mb-6">
             <div className="flex-1">
               {editingAccount ? (
@@ -495,8 +495,8 @@ export default function AccountDetail() {
         </div>
 
         {/* Positions */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-6">
+        <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
             <h3 className="text-xl font-bold text-dark">Positions</h3>
             <button
               onClick={() => setShowAddPosition(true)}
@@ -519,19 +519,19 @@ export default function AccountDetail() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 font-semibold text-gray-700">Symbol</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Quantity</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Price</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-700">Value</th>
-                    <th className="text-center py-3 px-4 font-semibold text-gray-700">Actions</th>
+                    <th className="text-left py-3 px-2 sm:px-4 font-semibold text-gray-700">Symbol</th>
+                    <th className="text-right py-3 px-2 sm:px-4 font-semibold text-gray-700">Quantity</th>
+                    <th className="text-right py-3 px-2 sm:px-4 font-semibold text-gray-700 hidden sm:table-cell">Price</th>
+                    <th className="text-right py-3 px-2 sm:px-4 font-semibold text-gray-700">Value</th>
+                    <th className="text-center py-3 px-2 sm:px-4 font-semibold text-gray-700">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {positions.map((position) => (
                     <Fragment key={position.id}>
                     <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-4 font-medium">{position.symbol}</td>
-                      <td className="py-4 px-4 text-right">
+                      <td className="py-3 px-2 sm:py-4 sm:px-4 font-medium">{position.symbol}</td>
+                      <td className="py-3 px-2 sm:py-4 sm:px-4 text-right">
                         {editingPosition === position.id ? (
                           <input
                             type="number"
@@ -545,13 +545,13 @@ export default function AccountDetail() {
                           Number(position.quantity).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
                         )}
                       </td>
-                      <td className="py-4 px-4 text-right">
+                      <td className="py-3 px-2 sm:py-4 sm:px-4 text-right hidden sm:table-cell">
                         {position.current_price ? `$${Number(position.current_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
                       </td>
-                      <td className="py-4 px-4 text-right font-semibold">
+                      <td className="py-3 px-2 sm:py-4 sm:px-4 text-right font-semibold">
                         ${((position.current_price || 0) * Number(position.quantity)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="py-3 px-2 sm:py-4 sm:px-4">
                         <div className="flex justify-center gap-2">
                           {editingPosition === position.id ? (
                             <>
@@ -639,8 +639,8 @@ export default function AccountDetail() {
 
         {/* Add Position Modal */}
         {showAddPosition && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg max-w-md w-full p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-5 sm:p-6 max-h-[90dvh] overflow-y-auto">
               <h3 className="text-xl font-bold text-dark mb-4">Add New Position</h3>
 
               <div className="space-y-4">

@@ -11,7 +11,7 @@ export const SkeletonText = ({ lines = 1 }: { lines?: number }) => (
 );
 
 export const SkeletonCard = () => (
-  <div className="bg-white rounded-lg shadow p-6">
+  <div className="bg-white rounded-lg shadow p-4 sm:p-6">
     <Skeleton className="h-6 w-1/3 mb-4" />
     <SkeletonText lines={3} />
   </div>
