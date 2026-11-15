@@ -41,6 +41,7 @@ function Table({ head, rows }: { head: string[]; rows: (string | number)[][] }) 
 export default function StockDetails({ r }: { r: StockResult }) {
   const [tab, setTab] = useState<Tab>("Projection");
   const cur = r.currency === "INR" ? "₹" : "$";
+  const isUS = r.currency !== "INR";
   const money = (n: number) => `${cur}${Math.round(n ?? 0).toLocaleString()}`;
   const d: any = r.details || {};
   const f = d.fundamental || {}, t = d.technical || {}, g = d.growth || {}, mf = d.mutualFund || {}, rk = d.risk || {};
@@ -101,7 +102,7 @@ export default function StockDetails({ r }: { r: StockResult }) {
               <ul className="mt-2 list-disc ml-5 space-y-1 text-gray-600">
                 <li>Projected price = current price × (1 + growth)^years, assuming the P/E multiple stays constant.</li>
                 <li>Required growth for any target = (target / current)^(1/years) − 1.</li>
-                <li>Growth drivers come from Screener.in (Indian filings), Yahoo Finance analyst targets and FinViz estimates (US, when available).</li>
+                <li>Growth drivers come from Screener.in (Indian filings), Yahoo Finance analyst targets and EPS estimates (US).</li>
               </ul>
             </details>
             <p className="mt-2 text-xs text-gray-400">Mechanical extrapolation of {money(r.projection.currentPrice)} today, not a forecast.</p>
@@ -236,13 +237,29 @@ export default function StockDetails({ r }: { r: StockResult }) {
               <Metric k="Sentiment" v={label(mf.sentiment || "neutral")} />
               <Metric k="Holding percentile" v={`${mf.holdingPercentile ?? "–"}`} />
             </div>
-            {r.shareholding && (
+            {r.shareholding && (() => {
+              // US data maps insiders/funds/institutions onto FinAI's Indian categories; show US names
+              const names: Record<string, string> = isUS
+                ? { promoter: "Insiders", mf: "Top 10 mutual funds", dii: "Other institutions", others: "Public / retail" }
+                : { promoter: "Promoters", fii: "FIIs", dii: "DIIs", mf: "Mutual funds", others: "Public / others" };
+              const entries = Object.entries(r.shareholding).filter(([k, v]) => names[k] && (v || !isUS));
+              return (
+                <div className="mt-3">
+                  <p className="text-xs text-gray-500 mb-1">
+                    Who owns it (%){isUS && r.institutionsCount ? ` · ${r.institutionsCount.toLocaleString()} institutions hold shares` : ""}
+                  </p>
+                  <Table head={entries.map(([k]) => names[k])} rows={[entries.map(([, v]) => num(v, 1))]} />
+                </div>
+              );
+            })()}
+            {isUS && (r.holders?.length ?? 0) > 0 && (
               <div className="mt-3">
-                <p className="text-xs text-gray-500 mb-1">Shareholding (%)</p>
-                <Table head={Object.keys(r.shareholding).map(label)} rows={[Object.values(r.shareholding).map((v: any) => num(v, 1))]} />
+                <p className="text-xs text-gray-500 mb-1">Largest holders and their latest change</p>
+                <Table head={["Holder", "Type", "Holding %", "Change", "Reported"]}
+                  rows={(r.holders || []).slice(0, 10).map((h: any) => [h.holder, h.type, num(h.pctHeld, 2), `${h.pctChange > 0 ? "+" : ""}${num(h.pctChange, 2)}%`, h.reported])} />
               </div>
             )}
-            {mf.topHolders?.length > 0 && (
+            {!isUS && mf.topHolders?.length > 0 && (
               <div className="mt-3">
                 <Table head={["Holder", "Holding %", "QoQ change"]}
                   rows={mf.topHolders.map((h: any) => [h.fundName, num(h.holdingPercentage, 2), num(h.changeLastQuarter, 2)])} />

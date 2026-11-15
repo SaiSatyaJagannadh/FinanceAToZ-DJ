@@ -32,6 +32,9 @@ export interface StockResult {
   moat?: any;
   sectorOutlook?: any;
   shareholding?: Record<string, number> | null;
+  holders?: { holder: string; type: string; pctHeld: number; pctChange: number; reported: string }[];
+  institutionsCount?: number | null;
+  estimates?: Record<string, any> | null;
   analystRatings?: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number } | null;
   analystActions?: any[];
   priceTargets?: { current: number; high: number; low: number; mean: number; median: number } | null;

@@ -135,6 +135,43 @@ def market_intel(yahoo_symbol: str) -> dict:
     }
 
 
+def us_ownership(yahoo_symbol: str) -> dict:
+    """US stand-in for Screener.in's shareholding, in the same shape FinAI's conviction engine reads:
+    insiders -> promoter, top mutual funds -> mf, other institutions -> dii, rest -> others.
+    QoQ change ~= sum of each top holder's stake x its reported % change."""
+    t = yf.Ticker(yahoo_symbol)
+    major = t.major_holders["Value"]
+    insiders = float(major.get("insidersPercentHeld", 0)) * 100
+    inst = float(major.get("institutionsPercentHeld", 0)) * 100
+    funds = t.mutualfund_holders.head(10)
+    institutions = t.institutional_holders.head(10)
+    mf = float(funds["pctHeld"].sum()) * 100
+
+    def delta(df):  # percentage-point change in stake held by these holders
+        return float((df["pctHeld"] * df["pctChange"] / (1 + df["pctChange"])).sum()) * 100
+
+    holders = [
+        {"holder": r["Holder"], "type": kind, "pctHeld": round(float(r["pctHeld"]) * 100, 2),
+         "pctChange": round(float(r["pctChange"]) * 100, 2), "reported": str(r["Date Reported"])[:10]}
+        for kind, df in (("Institution", institutions), ("Fund", funds)) for _, r in df.iterrows()
+    ]
+    return {
+        "percentages": {"promoter": round(insiders, 2), "mf": round(mf, 2), "fii": 0,
+                        "dii": round(max(0.0, inst - mf), 2), "others": round(max(0.0, 100 - insiders - inst), 2)},
+        "qoqChanges": {"mf": round(delta(funds), 3), "dii": round(delta(institutions), 3), "fii": 0, "promoter": 0, "others": 0},
+        "institutionsCount": int(major.get("institutionsCount", 0)),
+        "holders": sorted(holders, key=lambda h: -h["pctHeld"]),
+    }
+
+
+def yahoo_estimates(yahoo_symbol: str) -> dict:
+    """Stand-in for FinViz's forward estimates (FinViz blocks scripted requests), same keys projectionMoat.js reads."""
+    trend = yf.Ticker(yahoo_symbol).growth_estimates["stockTrend"]
+    pct = lambda k: round(float(trend[k]) * 100, 1) if k in trend and trend[k] == trend[k] else 0  # NaN-safe
+    est = {"epsGrowthThisY": pct("0y"), "epsGrowthNextY": pct("+1y"), "epsGrowthNext5Y": pct("LTG")}
+    return {"success": any(est.values()), "source": "Yahoo Finance analyst estimates", **est}
+
+
 def source_links(symbol: str, exchange: str, yahoo_symbol: str) -> dict:
     links = {"Yahoo Finance": f"https://finance.yahoo.com/quote/{yahoo_symbol}"}
     if exchange in ("NSE", "BSE"):
@@ -161,20 +198,31 @@ def check_stock(symbol: str, exchange: str) -> dict:
     yahoo_symbol = data.get("yahooSymbol") or symbol
 
     # Screener.in covers Indian listings, FinViz US ones; news/analysts come from Yahoo for both
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=5) as pool:
         sc_f = pool.submit(fetch_company, symbol) if india else None
         fv_f = pool.submit(fetch_finviz, symbol) if not india else None
+        own_f = pool.submit(us_ownership, yahoo_symbol) if not india else None
+        est_f = pool.submit(yahoo_estimates, yahoo_symbol) if not india else None
         intel_f = pool.submit(market_intel, yahoo_symbol)
         sc = _safe(sc_f.result, {}) if sc_f else {}
         fv = _safe(fv_f.result, {}) if fv_f else {}
+        us_own = _safe(own_f.result, None) if own_f else None
+        estimates = _safe(est_f.result, {}) if est_f else {}
         intel = intel_f.result()
 
     if sc.get("success", True):
         merge_screener(data, sc)
-    shareholding = sc.get("shareholding")
+    shareholding = sc.get("shareholding") or us_own
+    if not fv.get("success") and estimates.get("success"):
+        fv = estimates
 
     analysis = run_node("analysisRunner.js", {"stockData": data, "screenerShareholding": shareholding, "symbol": symbol})
     extras = run_node("extrasRunner.js", {"stockData": data, "finviz": fv or None, "shareholding": shareholding})
+
+    # projectionMoat.js labels forward-estimate rows "(FinViz)"; name the real source when Yahoo stood in
+    if fv.get("source", "").startswith("Yahoo") and extras.get("projection"):
+        for s in extras["projection"]["scenarios"]:
+            s["label"] = s["label"].replace("(FinViz)", "(Yahoo)")
 
     price, fund = data.get("priceData", {}), data.get("fundamental", {})
     overall = analysis["overall"]
@@ -209,7 +257,9 @@ def check_stock(symbol: str, exchange: str) -> dict:
         "moat": extras["moat"],
         "sectorOutlook": extras["sectorOutlook"],
         "shareholding": (shareholding or {}).get("percentages"),
-        "finviz": fv if fv.get("success") else None,
+        "holders": (us_own or {}).get("holders", []),
+        "institutionsCount": (us_own or {}).get("institutionsCount"),
+        "estimates": fv if fv.get("success") else None,
         **intel,
         "sources": source_links(symbol, exchange, yahoo_symbol),
         "priceHistory": [p.get("close") for p in (data.get("priceHistory") or [])][-250:],

@@ -314,7 +314,9 @@ There is no pytest, ruff or JS test suite. The `test_*.py` files are standalone 
     - `POST /chat` calls Nova Pro through the Bedrock `converse` API.
     - The frontend reads the URL from `NEXT_PUBLIC_STOCKCHECK_URL` in `frontend/.env.local`, which `scripts/deploy.py` copies into the production build.
     - Signed-out users get 3 checks and 5 chat questions before a sign-up prompt. This is enforced client-side only (localStorage/React state).
-    - `/check` also returns FinAI's projection/moat (`engine/extrasRunner.js`) and Yahoo analyst ratings, upgrades/downgrades, events and news. FinViz returns 403 from scripts, so it is best-effort.
+    - `/check` also returns FinAI's projection/moat (`engine/extrasRunner.js`) and Yahoo analyst ratings, upgrades/downgrades, events and news.
+    - For US stocks, Screener.in has no data, so `us_ownership()` maps Yahoo insider, fund and institution stakes into the Screener shareholding shape for FinAI's conviction engine.
+    - FinViz returns 403 from scripts, so `yahoo_estimates()` supplies the forward EPS growth that `projectionMoat.js` reads.
     - `exchange: "IN"` tries NSE, then BSE.
     - `POST /search` maps a name to a symbol (yfinance Search). The add-position form uses it.
   - **Branding:** the UI calls the product **Finora**. AWS resources, packages and code identifiers still use `alex`.
