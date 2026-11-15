@@ -94,7 +94,7 @@ function Sparkline({ points }: { points: number[] }) {
     .join(" ");
   const up = points[points.length - 1] >= points[0];
   return (
-    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-14" aria-label="Price over the last 6 months">
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className="w-full h-14" aria-label="Price over the last year">
       <polyline points={d} fill="none" strokeWidth="1.2" vectorEffect="non-scaling-stroke"
         className={up ? "stroke-success" : "stroke-error"} />
     </svg>
@@ -257,6 +257,7 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
             </div>
           </div>
 
+          <p className="mt-3 text-xs text-gray-500">1-year price history</p>
           <Sparkline points={result.priceHistory} />
 
           <ul className="mt-2 space-y-2.5">
@@ -278,8 +279,18 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
             {[
               ["Target", money(result.recommendation.targetPrice)],
               ["Stop-loss", money(result.recommendation.stopLoss)],
-              ["P/E", result.metrics.pe ? result.metrics.pe.toFixed(1) : "–"],
               ["Horizon", result.recommendation.investmentHorizon.toLowerCase()],
+              ["Confidence", result.recommendation.confidence.toLowerCase()],
+              ["Market cap", result.currency === "INR"
+                ? `₹${Math.round((result.marketCap || 0) / 1e7).toLocaleString()} Cr`
+                : `$${((result.marketCap || 0) / 1e9).toFixed(1)} B`],
+              ["P/E", result.metrics.pe ? result.metrics.pe.toFixed(1) : "–"],
+              ["P/B", result.metrics.pb ? result.metrics.pb.toFixed(2) : "–"],
+              ["ROE", result.metrics.roe ? `${result.metrics.roe.toFixed(1)}%` : "–"],
+              ["Dividend yield", result.metrics.dividendYield ? `${result.metrics.dividendYield.toFixed(2)}%` : "–"],
+              ["Debt/Equity", result.metrics.debtToEquity ? result.metrics.debtToEquity.toFixed(2) : "–"],
+              ["52-week low", money(result.fiftyTwoWeekLow)],
+              ["52-week high", money(result.fiftyTwoWeekHigh)],
             ].map(([k, v]) => (
               <div key={k} className="p-2.5 rounded-lg bg-gray-50">
                 <p className="text-xs text-gray-500">{k}</p>

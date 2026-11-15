@@ -47,6 +47,16 @@ export default function PositionResearch({ symbol, quantity }: { symbol: string;
   // Nearest support level below today's price (the engine lists several)
   const below = ((data.details?.technical?.supportResistance?.support as number[]) || []).filter((s) => s < data.price);
   const support = below.length ? Math.max(...below) : undefined;
+  // FinAI's target equals today's price on HOLD, so fall back to the next resistance, then the analyst mean target
+  const above = ((data.details?.technical?.supportResistance?.resistance as number[]) || []).filter((s) => s > data.price * 1.005);
+  const [shortTarget, targetSource] =
+    rec.targetPrice > data.price * 1.005 ? [rec.targetPrice, "engine target"]
+    : above.length ? [Math.min(...above), "next resistance"]
+    : data.priceTargets?.mean && data.priceTargets.mean > data.price ? [data.priceTargets.mean, "analyst mean target"]
+    : [data.price * 1.08, "+8% rule of thumb"];
+  const rsiSignal =(data.details?.technical?.rsi?.signal || "").replace(/_/g, " ").toLowerCase();
+  const longTermOk = data.scores.fundamental >= 60 && data.scores.growth >= 55;
+  const nextEarnings = data.events?.find((e) => e.event === "Earnings Date")?.date;
 
   const plan = {
     BUY: [
@@ -89,6 +99,28 @@ export default function PositionResearch({ symbol, quantity }: { symbol: string;
           {plan.map((p) => <li key={p}>{p}</li>)}
           <li>{HORIZON_PLAN[rec.investmentHorizon] || HORIZON_PLAN["MEDIUM-TERM"]}</li>
         </ul>
+        <div className="mt-3 grid sm:grid-cols-2 gap-3">
+          <div className="p-3 rounded-lg bg-white border border-gray-200">
+            <p className="font-medium text-dark">⚡ If you trade it short-term</p>
+            <ul className="mt-1 list-disc ml-5 space-y-0.5 text-gray-700">
+              <li>Entry: {rec.action === "SELL" ? "wait; the trend is against you" : support ? `near ${money(data.price)}, or better on a dip to ${money(support)}` : `near ${money(data.price)}`}</li>
+              <li>Take profit: {money(shortTarget)} (+{((shortTarget / data.price - 1) * 100).toFixed(1)}%, {targetSource})</li>
+              <li>Stop-loss: {money(rec.stopLoss)} ({downside}%), exit with no second-guessing</li>
+              <li>Window: weeks to ~3 months{rsiSignal ? `; RSI says ${rsiSignal}` : ""}</li>
+            </ul>
+          </div>
+          <div className="p-3 rounded-lg bg-white border border-gray-200">
+            <p className="font-medium text-dark">🌱 If you invest long-term</p>
+            <ul className="mt-1 list-disc ml-5 space-y-0.5 text-gray-700">
+              <li>{longTermOk
+                ? `Quality and growth look solid (fundamentals ${data.scores.fundamental}, growth ${data.scores.growth}): hold 3–5+ years.`
+                : `Fundamentals ${data.scores.fundamental} / growth ${data.scores.growth} are not strong: keep it a small position.`}</li>
+              <li>Add gradually (e.g. monthly) rather than all at once.</li>
+              <li>Review every quarter after earnings{nextEarnings ? ` (next: ${nextEarnings})` : ""}.</li>
+              <li>Exit if the score falls into SELL territory (below 50) or the business case breaks, not because of short-term dips.</li>
+            </ul>
+          </div>
+        </div>
         <p className="mt-2 text-xs text-gray-400">
           Mechanical scores, not advice. <Link href={`/stock-check?symbol=${symbol}`} className="text-primary hover:underline">See full research →</Link>
         </p>

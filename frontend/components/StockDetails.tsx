@@ -59,11 +59,51 @@ export default function StockDetails({ r }: { r: StockResult }) {
       <div className="mt-3 text-sm">
         {tab === "Projection" && (r.projection ? (
           <>
-            <p className="text-gray-600 mb-2">If each growth rate holds (constant P/E), the price in…</p>
+            {(() => {
+              const base = r.projection.scenarios[0];
+              return (
+                <>
+                  <p className="text-gray-700 mb-2">
+                    If growth averages <strong>{base.growthPct > 0 ? "+" : ""}{base.growthPct}%/yr</strong> (base case),{" "}
+                    {money(r.projection.currentPrice)} becomes:
+                  </p>
+                  <div className="grid grid-cols-4 gap-2 mb-4">
+                    {[1, 3, 5, 10].map((y) => {
+                      const p = r.projection.currentPrice * Math.pow(1 + base.growthPct / 100, y);
+                      return <Metric key={y} k={`In ${y} year${y > 1 ? "s" : ""}`} v={`${money(p)} (${((p / r.projection.currentPrice - 1) * 100).toFixed(0)}%)`} />;
+                    })}
+                  </div>
+                </>
+              );
+            })()}
+            <p className="text-gray-600 mb-2">Each scenario, year by year: if this growth rate holds, what&apos;s the price?</p>
             <Table
-              head={["Scenario", "Growth/yr", ...r.projection.years.map((y: number) => `${y}Y`)]}
-              rows={r.projection.scenarios.map((s: any) => [s.label, `${s.growthPct > 0 ? "+" : ""}${s.growthPct}%`, ...s.prices.map(money)])}
+              head={["Scenario", "Growth/yr", ...r.projection.years.map((y: number) => `${y}Y`), "Source"]}
+              rows={r.projection.scenarios.map((s: any) => [s.label, `${s.growthPct > 0 ? "+" : ""}${s.growthPct}%`, ...s.prices.map(money), s.source])}
             />
+            {r.projection.scenarios.some((s: any) => s.growthPct < 0) && (
+              <p className="mt-2 text-xs text-gray-500">⚠️ A negative growth row projects a declining price.</p>
+            )}
+            <details className="mt-3">
+              <summary className="cursor-pointer text-primary text-sm">What each scenario means</summary>
+              <ul className="mt-2 list-disc ml-5 space-y-1 text-gray-600">
+                {r.projection.scenarios.map((s: any) => <li key={s.label}><strong>{s.label}</strong> ({s.growthPct}%/yr): {s.why}</li>)}
+              </ul>
+            </details>
+            {g.projections?.eps?.current ? (
+              <p className="mt-2 text-xs text-gray-500">
+                EPS path: {num(g.projections.eps.current)} now → {num(g.projections.eps.projected1Y)} in 1Y → {num(g.projections.eps.projected2Y)} in 2Y
+                at {num(g.projections.eps.cagr, 1)}% CAGR.
+              </p>
+            ) : null}
+            <details className="mt-2">
+              <summary className="cursor-pointer text-primary text-sm">How these numbers are estimated</summary>
+              <ul className="mt-2 list-disc ml-5 space-y-1 text-gray-600">
+                <li>Projected price = current price × (1 + growth)^years, assuming the P/E multiple stays constant.</li>
+                <li>Required growth for any target = (target / current)^(1/years) − 1.</li>
+                <li>Growth drivers come from Screener.in (Indian filings), Yahoo Finance analyst targets and FinViz estimates (US, when available).</li>
+              </ul>
+            </details>
             <p className="mt-2 text-xs text-gray-400">Mechanical extrapolation of {money(r.projection.currentPrice)} today, not a forecast.</p>
           </>
         ) : <p className="text-gray-500">Not enough growth data to project a price path.</p>)}
@@ -137,11 +177,15 @@ export default function StockDetails({ r }: { r: StockResult }) {
               <Metric k="Profit margin %" v={num(f.profitMargin, 1)} />
               <Metric k="Current ratio" v={num(f.currentRatio)} />
             </div>
-            {f.industryComparison?.peRatio && (
-              <p className="mt-3 text-gray-600">
-                vs. {label(f.industryComparison.sector || "sector")}: P/E {num(f.industryComparison.peRatio.value, 1)} against a sector norm of{" "}
-                {(f.industryComparison.peRatio.sectorRange || []).join("–")} ({label(f.industryComparison.peRatio.verdict || "")}).
-              </p>
+            {f.industryComparison && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 mb-1">How it stacks up vs. the {label(f.industryComparison.sector || "sector")} sector</p>
+                <Table head={["Metric", "This stock", "Sector norm", "Verdict"]} rows={[
+                  ["P/E", num(f.industryComparison.peRatio?.value, 1), (f.industryComparison.peRatio?.sectorRange || []).join("–") || "–", label(f.industryComparison.peRatio?.verdict || "")],
+                  ["PEG", num(f.industryComparison.pegRatio?.value), `≤ ${f.industryComparison.pegRatio?.sectorTarget ?? "–"}`, ""],
+                  ["Debt/Equity", num(f.industryComparison.debtToEquity?.value), `≤ ${f.industryComparison.debtToEquity?.sectorMax ?? "–"}`, label(f.industryComparison.debtToEquity?.verdict || "")],
+                ]} />
+              </div>
             )}
             {f.scores && <p className="mt-2 text-xs text-gray-500">Sub-scores: valuation {f.scores.valuation} · profitability {f.scores.profitability} · financial health {f.scores.financialHealth} · growth {f.scores.growth}</p>}
           </>
@@ -177,8 +221,9 @@ export default function StockDetails({ r }: { r: StockResult }) {
             {g.quarterly?.sales?.length > 0 && (
               <div className="mt-4">
                 <p className="text-xs text-gray-500 mb-1">Last {g.quarterly.sales.length} quarters</p>
-                <Table head={["Quarter", "Sales", "Net profit"]}
-                  rows={g.quarterly.sales.map((s: number, i: number) => [g.quarterly.labels?.[i] || `Q${i + 1}`, s, g.quarterly.netProfit?.[i] ?? "–"])} />
+                <Table head={["Quarter", "Sales", "Net profit", "OPM %"]}
+                  rows={g.quarterly.sales.map((s: number, i: number) => [g.quarterly.labels?.[i] || `Q${i + 1}`, s, g.quarterly.netProfit?.[i] ?? "–", g.quarterly.opm?.[i] ?? "–"])} />
+                {(g.quarterly.warnings || []).map((w: string) => <p key={w} className="mt-2 text-xs text-orange-600">⚠️ {w}</p>)}
               </div>
             )}
           </>
@@ -203,6 +248,11 @@ export default function StockDetails({ r }: { r: StockResult }) {
                   rows={mf.topHolders.map((h: any) => [h.fundName, num(h.holdingPercentage, 2), num(h.changeLastQuarter, 2)])} />
               </div>
             )}
+            {mf.totalFundsHolding ? (
+              <p className="mt-2 text-xs text-gray-500">
+                {mf.totalFundsHolding} of {mf.totalFundsAnalyzed ?? 0} tracked holders own this stock · average holding {num(mf.averageHoldingPercentage, 1)}%
+              </p>
+            ) : null}
           </>
         )}
 
@@ -227,6 +277,10 @@ export default function StockDetails({ r }: { r: StockResult }) {
                 <ul className="mt-1 space-y-1">
                   {r.moat.checks.map((c: any) => <li key={c.text} className="flex gap-2"><span>{c.pass ? "✅" : "❌"}</span><span className="text-gray-700">{c.text}</span></li>)}
                 </ul>
+                <p className="mt-2 p-3 rounded-lg bg-primary/5 text-gray-700">
+                  {r.moat.verdict === "WIDE" ? "Wide moat: most quality markers present." : r.moat.verdict === "NARROW" ? "Narrow moat: some durable advantages, not dominant." : "No clear moat: profits look competitive or cyclical."}{" "}
+                  Numbers show the moat&apos;s effect; read the annual report (links below) for its cause: brand, network effects, switching costs, cost advantage or regulation.
+                </p>
               </div>
             )}
             {r.sectorOutlook && (
@@ -235,16 +289,39 @@ export default function StockDetails({ r }: { r: StockResult }) {
                 <a href={r.sectorOutlook.source} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Source</a>
               </p>
             )}
-            {r.sources && (
-              <div>
-                <p className="font-medium mb-1">Research it yourself</p>
-                <div className="flex flex-wrap gap-2">
-                  {Object.entries(r.sources).map(([k, url]) => (
-                    <a key={k} href={url as string} target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs">{k} ↗</a>
-                  ))}
-                </div>
+            <div>
+              <p className="font-medium mb-1">How analysts actually analyze this stock</p>
+              <ul className="list-disc ml-5 space-y-1 text-gray-600">
+                <li><strong>Valuation</strong>: P/E and PEG vs. the sector range (Fundamentals tab), plus discounted cash flow for a fair value.</li>
+                <li><strong>Quality</strong>: ROE/ROCE and margins sustained over years, not one good quarter.</li>
+                <li><strong>Growth</strong>: revenue/EPS trajectory and management guidance (Growth and Projection tabs).</li>
+                <li><strong>Ownership flows</strong>: promoter/FII/DII/fund stake changes each quarter (Conviction tab).</li>
+                <li><strong>Technicals</strong>: RSI, MACD and moving-average trend for entry timing (Technicals tab).</li>
+                <li><strong>Risk</strong>: beta, leverage and volatility to size the downside (Risk tab).</li>
+              </ul>
+              <p className="mt-1 text-xs text-gray-500">The score weights these as fundamental 25% · growth 25% · technical 20% · conviction 15% · risk 15%.</p>
+            </div>
+            <div>
+              <p className="font-medium mb-1">Primary documents &amp; deeper research</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries({
+                  ...(r.currency === "INR"
+                    ? {
+                        "Annual reports, concalls & ratings (Screener.in)": `https://www.screener.in/company/${r.symbol}/consolidated/#documents`,
+                        "Exchange filings (NSE)": `https://www.nseindia.com/get-quotes/equity?symbol=${r.symbol}`,
+                        "Google Finance": `https://www.google.com/finance/quote/${r.symbol}:${r.exchange === "BSE" ? "BOM" : "NSE"}`,
+                      }
+                    : {
+                        "SEC 10-K annual reports (EDGAR)": `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${r.symbol}&type=10-K&dateb=&owner=include&count=10`,
+                        "FinViz snapshot & analyst ratings": `https://finviz.com/quote.ashx?t=${r.symbol}`,
+                        "Financial statements (stockanalysis.com)": `https://stockanalysis.com/stocks/${r.symbol.toLowerCase()}/financials/`,
+                      }),
+                  ...(r.sources || {}),
+                }).map(([k, url]) => (
+                  <a key={k} href={url} target="_blank" rel="noopener noreferrer" className="px-3 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-xs">{k} ↗</a>
+                ))}
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>
