@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useUser, useAuth } from "@clerk/nextjs";
 import { useEffect, useState, useCallback } from "react";
 import { API_URL } from "../lib/config";
@@ -406,6 +407,37 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
+            {accounts.length === 0 && (
+              <div className="mb-8 p-6 rounded-xl bg-gradient-to-r from-primary/10 to-ai-accent/10 border border-primary/20">
+                <h2 className="text-xl font-semibold text-dark">Welcome to Alex! Let&apos;s set up your portfolio</h2>
+                <ol className="mt-3 space-y-1 text-gray-700 list-decimal ml-5">
+                  <li>Add an account (e.g. 401k, Roth IRA, brokerage)</li>
+                  <li>Add the ETFs and stocks you hold in it</li>
+                  <li>Run an AI analysis: six agents review your whole portfolio</li>
+                </ol>
+                <Link href="/accounts" className="mt-4 inline-block px-5 py-2.5 bg-primary text-white font-semibold rounded-lg hover:brightness-95">
+                  Add your first account
+                </Link>
+              </div>
+            )}
+
+            {/* Quick actions */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+              {[
+                ['/accounts', '💼', 'Manage accounts', 'Add accounts and positions'],
+                ['/advisor-team', '🤖', 'Run AI analysis', 'Report, charts, retirement and growth ideas'],
+                ['/stock-check', '🔎', 'Check a stock', 'Five-pillar score and BUY / HOLD / SELL'],
+              ].map(([href, icon, title, desc]) => (
+                <Link key={href} href={href} className="flex items-start gap-3 p-4 bg-white rounded-lg shadow hover:shadow-md transition">
+                  <span className="text-2xl" aria-hidden>{icon}</span>
+                  <span>
+                    <span className="block font-semibold text-dark">{title}</span>
+                    <span className="block text-sm text-gray-500">{desc}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+
             {/* Portfolio Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg shadow p-6 text-center">

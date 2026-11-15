@@ -20,6 +20,7 @@ export default function Layout({ children }: LayoutProps) {
     ["/accounts", "Accounts"],
     ["/advisor-team", "Advisor Team"],
     ["/analysis", "Analysis"],
+    ["/stock-check", "Stock Check"],
   ].map(([href, label]) => (
     <Link
       key={href}

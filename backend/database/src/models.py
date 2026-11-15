@@ -261,6 +261,11 @@ class Jobs(BaseModel):
         data = {'retirement_payload': retirement_payload}
         return self.db.update(self.table_name, data, "id = :id::uuid", {'id': job_id})
     
+    def update_growth(self, job_id: str, growth_payload: Dict) -> int:
+        """Update job with High Growth agent's suggestions"""
+        data = {'growth_payload': growth_payload}
+        return self.db.update(self.table_name, data, "id = :id::uuid", {'id': job_id})
+
     def update_summary(self, job_id: str, summary_payload: Dict) -> int:
         """Update job with Planner's final summary"""
         data = {'summary_payload': summary_payload}

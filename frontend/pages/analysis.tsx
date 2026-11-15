@@ -29,6 +29,11 @@ interface Job {
     analysis: string;
     generated_at: string;
   };
+  growth_payload?: {
+    agent: string;
+    analysis: string;
+    generated_at: string;
+  };
   error_message?: string;
 }
 
@@ -39,7 +44,14 @@ interface JobListItem {
   job_type: string;
 }
 
-type TabType = 'overview' | 'charts' | 'retirement';
+type TabType = 'overview' | 'charts' | 'retirement' | 'growth';
+
+const TABS: [TabType, string][] = [
+  ['overview', '📊 Overview'],
+  ['charts', '📈 Charts'],
+  ['retirement', '🎯 Retirement Projection'],
+  ['growth', '🚀 High Growth Picks'],
+];
 
 // Color palette for charts
 const COLORS = [
@@ -441,45 +453,47 @@ export default function Analysis() {
     );
   };
 
-  const renderRetirement = () => {
-    const retirement = job?.retirement_payload;
-    if (!retirement) {
-      return (
-        <div className="text-center py-12 text-gray-500">
-          No retirement projection available.
-        </div>
-      );
+  // Retirement and Growth agents both save markdown in payload.analysis
+  const renderAgentMarkdown = (analysis: string | undefined, emptyText: string, tint: string) => {
+    if (!analysis) {
+      return <div className="text-center py-12 text-gray-500">{emptyText}</div>;
     }
 
-    // Backend provides 'analysis' as markdown text
-    const retirementAnalysis = retirement.analysis;
-
     return (
-      <div className="space-y-8">
-        {/* Analysis Section */}
-        {retirementAnalysis && (
-          <div className="bg-ai-accent/10 border border-ai-accent/20 rounded-lg p-6">
-            <div className="prose prose-lg max-w-none">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkBreaks]}
-                components={{
-                  h2: ({children}) => <h2 className="text-2xl font-semibold mb-3 text-gray-800">{children}</h2>,
-                  h3: ({children}) => <h3 className="text-xl font-medium mb-2 text-gray-700">{children}</h3>,
-                  p: ({children}) => <p className="text-gray-700 leading-relaxed mb-4">{children}</p>,
-                  strong: ({children}) => <strong className="font-semibold text-gray-900">{children}</strong>,
-                  ul: ({children}) => <ul className="list-disc ml-6 mt-2 space-y-1">{children}</ul>,
-                  li: ({children}) => <li className="text-gray-700">{children}</li>,
-                }}
-              >
-                {retirementAnalysis}
-              </ReactMarkdown>
-            </div>
-          </div>
-        )}
-
+      <div className={`border rounded-lg p-6 ${tint}`}>
+        <div className="prose prose-lg max-w-none">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkBreaks]}
+            components={{
+              h2: ({children}) => <h2 className="text-2xl font-semibold mt-6 mb-3 text-gray-800">{children}</h2>,
+              h3: ({children}) => <h3 className="text-xl font-medium mb-2 text-gray-700">{children}</h3>,
+              p: ({children}) => <p className="text-gray-700 leading-relaxed mb-4">{children}</p>,
+              strong: ({children}) => <strong className="font-semibold text-gray-900">{children}</strong>,
+              ul: ({children}) => <ul className="list-disc ml-6 mt-2 space-y-1">{children}</ul>,
+              li: ({children}) => <li className="text-gray-700">{children}</li>,
+              table: ({children}) => (
+                <div className="overflow-x-auto mb-6"><table className="min-w-full text-sm bg-white rounded-lg">{children}</table></div>
+              ),
+              th: ({children}) => <th className="px-3 py-2 text-left font-semibold text-gray-700 border-b">{children}</th>,
+              td: ({children}) => <td className="px-3 py-2 text-gray-700 border-b border-gray-100">{children}</td>,
+            }}
+          >
+            {analysis}
+          </ReactMarkdown>
+        </div>
       </div>
     );
   };
+
+  const renderRetirement = () =>
+    renderAgentMarkdown(job?.retirement_payload?.analysis, 'No retirement projection available.', 'bg-ai-accent/10 border-ai-accent/20');
+
+  const renderGrowth = () =>
+    renderAgentMarkdown(
+      job?.growth_payload?.analysis,
+      'No high growth suggestions in this analysis. Run a new analysis to get them.',
+      'bg-success/5 border-success/20'
+    );
 
   return (
     <>
@@ -510,37 +524,20 @@ export default function Analysis() {
           {/* Tabs */}
           <div className="bg-white rounded-lg shadow mb-8">
             <div className="border-b border-gray-200">
-              <nav className="flex -mb-px">
-                <button
-                  onClick={() => setActiveTab('overview')}
-                  className={`py-3 px-8 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'overview'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  📊 Overview
-                </button>
-                <button
-                  onClick={() => setActiveTab('charts')}
-                  className={`py-3 px-8 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'charts'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  📈 Charts
-                </button>
-                <button
-                  onClick={() => setActiveTab('retirement')}
-                  className={`py-3 px-8 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === 'retirement'
-                      ? 'border-primary text-primary'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  🎯 Retirement Projection
-                </button>
+              <nav className="flex -mb-px overflow-x-auto">
+                {TABS.map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`py-3 px-6 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                      activeTab === tab
+                        ? 'border-primary text-primary'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </nav>
             </div>
           </div>
@@ -550,6 +547,7 @@ export default function Analysis() {
             {activeTab === 'overview' && renderOverview()}
             {activeTab === 'charts' && renderCharts()}
             {activeTab === 'retirement' && renderRetirement()}
+            {activeTab === 'growth' && renderGrowth()}
           </div>
         </div>
       </div>

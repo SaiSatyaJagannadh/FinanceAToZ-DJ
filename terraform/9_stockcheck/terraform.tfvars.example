@@ -1,0 +1,5 @@
+aws_region       = "us-east-1"
+bedrock_model_id = "us.amazon.nova-pro-v1:0"
+bedrock_region   = "us-west-2"
+# Your CloudFront URL from terraform/7_frontend (terraform output cloudfront_url), plus local dev
+allowed_origins = ["https://YOUR_DISTRIBUTION.cloudfront.net", "http://localhost:3000"]

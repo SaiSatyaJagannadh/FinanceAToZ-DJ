@@ -16,3 +16,5 @@ export const getApiUrl = () => {
 };
 
 export const API_URL = getApiUrl();
+// Public (no login) stock check + chat Lambda function URL from terraform/9_stockcheck
+export const STOCKCHECK_URL = (process.env.NEXT_PUBLIC_STOCKCHECK_URL || '').replace(/\/$/, '');

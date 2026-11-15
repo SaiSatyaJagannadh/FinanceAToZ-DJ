@@ -23,6 +23,7 @@ TAGGER_FUNCTION = os.getenv("TAGGER_FUNCTION", "alex-tagger")
 REPORTER_FUNCTION = os.getenv("REPORTER_FUNCTION", "alex-reporter")
 CHARTER_FUNCTION = os.getenv("CHARTER_FUNCTION", "alex-charter")
 RETIREMENT_FUNCTION = os.getenv("RETIREMENT_FUNCTION", "alex-retirement")
+GROWTH_FUNCTION = os.getenv("GROWTH_FUNCTION", "alex-growth")
 MOCK_LAMBDAS = os.getenv("MOCK_LAMBDAS", "false").lower() == "true"
 
 
@@ -239,6 +240,16 @@ async def invoke_retirement_internal(job_id: str) -> str:
     return "Retirement agent completed successfully. Retirement projections have been calculated and saved."
 
 
+async def invoke_growth_internal(job_id: str) -> str:
+    """Invoke the High Growth Value Scout Lambda for long-term growth suggestions."""
+    result = await invoke_lambda_agent("Growth", GROWTH_FUNCTION, {"job_id": job_id})
+
+    if "error" in result:
+        return f"Growth agent failed: {result['error']}"
+
+    return "Growth agent completed successfully. Long-term growth suggestions have been saved."
+
+
 
 @function_tool
 async def invoke_reporter(wrapper: RunContextWrapper[PlannerContext]) -> str:
@@ -254,6 +265,11 @@ async def invoke_charter(wrapper: RunContextWrapper[PlannerContext]) -> str:
 async def invoke_retirement(wrapper: RunContextWrapper[PlannerContext]) -> str:
     """Invoke the Retirement Specialist agent for retirement projections."""
     return await invoke_retirement_internal(wrapper.context.job_id)
+
+@function_tool
+async def invoke_growth(wrapper: RunContextWrapper[PlannerContext]) -> str:
+    """Invoke the High Growth Value Scout agent for long-term growth fund and stock suggestions."""
+    return await invoke_growth_internal(wrapper.context.job_id)
 
 
 def create_agent(job_id: str, portfolio_summary: Dict[str, Any], db):
@@ -274,6 +290,7 @@ def create_agent(job_id: str, portfolio_summary: Dict[str, Any], db):
         invoke_reporter,
         invoke_charter,
         invoke_retirement,
+        invoke_growth,
     ]
 
     # Create minimal task context

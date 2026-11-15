@@ -61,6 +61,14 @@ const agents: Agent[] = [
     description: 'Projects your retirement readiness',
     color: 'text-accent',
     bgColor: 'bg-accent'
+  },
+  {
+    icon: '🚀',
+    name: 'High Growth Scout',
+    role: 'Growth',
+    description: 'Suggests long-term high-growth funds and stocks',
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-600'
   }
 ];
 
@@ -214,7 +222,7 @@ export default function AdvisorTeam() {
           setProgress({
             stage: 'parallel',
             message: 'Agents working in parallel...',
-            activeAgents: ['Portfolio Analyst', 'Chart Specialist', 'Retirement Planner']
+            activeAgents: ['Portfolio Analyst', 'Chart Specialist', 'Retirement Planner', 'High Growth Scout']
           });
         }, 5000);
       } else {
@@ -276,7 +284,7 @@ export default function AdvisorTeam() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             {agents.map((agent) => (
               <div
                 key={agent.name}

@@ -16,6 +16,7 @@ output "lambda_functions" {
     reporter   = aws_lambda_function.reporter.function_name
     charter    = aws_lambda_function.charter.function_name
     retirement = aws_lambda_function.retirement.function_name
+    growth     = aws_lambda_function.growth.function_name
   }
 }
 

@@ -32,6 +32,7 @@ LOG_GROUPS = {
     'REPORTER': '/aws/lambda/alex-reporter',
     'CHARTER': '/aws/lambda/alex-charter',
     'RETIREMENT': '/aws/lambda/alex-retirement',
+    'GROWTH': '/aws/lambda/alex-growth',
 }
 
 

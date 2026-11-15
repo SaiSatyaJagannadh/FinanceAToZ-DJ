@@ -16,6 +16,7 @@ members = [
     "database",
     "api",
     "scheduler",
+    "stockcheck",
 ]
 
 [tool.uv.sources]

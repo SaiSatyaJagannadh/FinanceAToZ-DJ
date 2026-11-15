@@ -61,6 +61,8 @@ alex/
 │   ├── reporter/        # Portfolio analysis agent
 │   ├── charter/         # Visualization agent
 │   ├── retirement/      # Retirement projection agent
+│   ├── growth/          # High Growth Value Scout agent (added beyond the course)
+│   ├── stockcheck/      # Public stock check + chat Lambda (FinAI engines, added beyond the course)
 │   ├── researcher/      # Market research agent (Lambda container image)
 │   ├── ingest/          # Document ingestion Lambda
 │   ├── database/        # Shared database library
@@ -280,6 +282,8 @@ Each Python directory is its own uv project. `cd` into it first, because the scr
 | Package one Lambda (Docker must be running) | `backend/<agent>` | `uv run package_docker.py` → `<agent>_lambda.zip` |
 | Package all 5 agent Lambdas | `backend` | `uv run package_docker.py` |
 | Redeploy agent Lambdas (taints them, then `terraform apply -auto-approve` in `terraform/6_agents`) | `backend` | `uv run deploy_all_lambdas.py [--package]` |
+| Test stock check + chat locally (needs `node`) | `backend/stockcheck` | `uv run test_local.py [SYMBOL] [US\|NSE\|BSE]` |
+| Build + push stock check image and apply `terraform/9_stockcheck` (Docker must be running) | `backend/stockcheck` | `uv run deploy.py` |
 | Tail all agents' CloudWatch logs | `backend` | `uv run watch_agents.py` |
 | Migrate / seed / reset DB | `backend/database` | `uv run run_migrations.py`, `uv run seed_data.py`, `uv run reset_db.py --with-test-data [--skip-drop]` |
 | Run frontend (:3000) and FastAPI (:8000) locally | `scripts` | `uv run run_local.py` |
@@ -303,6 +307,13 @@ There is no pytest, ruff or JS test suite. The `test_*.py` files are standalone 
 - **Model config differs by service:**
   - The Lambda agents (`terraform/6_agents`) use `BEDROCK_MODEL_ID` (no `bedrock/` prefix) plus `BEDROCK_REGION`.
   - The Researcher (`terraform/4_researcher`) uses `RESEARCHER_MODEL`, which is a full LiteLLM string, plus `BEDROCK_REGION`. It defaults to `bedrock/converse/openai.gpt-oss-120b-1:0`, not Nova Pro.
+- **Additions beyond the course (this repo only):**
+  - **High Growth agent** (`backend/growth`, Lambda `alex-growth`): tool-free agent built like Retirement. The Planner calls it through `invoke_growth`, and it writes markdown to `jobs.growth_payload`. That column comes from `backend/database/migrations/002_growth_payload.sql`, which `run_migrations.py` does **not** run; apply it with `aws rds-data execute-statement`. The frontend shows it on the "High Growth Picks" tab of `/analysis`.
+  - **Public stock check + chat** (`backend/stockcheck`, `terraform/9_stockcheck`): a container Lambda with a public function URL and no Clerk auth.
+    - `POST /check` runs FinAI's scoring engines, copied into `engine/` from github.com/SaiSatyaJagannadh/FinAI: yfinance plus Screener.in data, scored by the Node `analysisRunner.js`.
+    - `POST /chat` calls Nova Pro through the Bedrock `converse` API.
+    - The frontend reads the URL from `NEXT_PUBLIC_STOCKCHECK_URL` in `frontend/.env.local`, which `scripts/deploy.py` copies into the production build.
+    - Signed-out users get 3 checks and 5 chat questions before a sign-up prompt. This is enforced client-side only (localStorage/React state).
 - **Reporter guardrail:** `backend/reporter/judge.py` runs an LLM-as-judge on the report. If the score is below `GUARD_AGAINST_SCORE` (0.3, defined in `reporter/lambda_handler.py`), the report is replaced with an apology. The judge runs **only when LangFuse is configured** (`observability.py`, enabled by `LANGFUSE_SECRET_KEY`).
 - **Frontend:**
   - Next.js Pages Router with `output: 'export'`, so it is a static site with no SSR and no API routes.
@@ -510,6 +521,7 @@ The most common issues relate to AWS region choices! Check environment variables
 1. Wait for cluster to reach "available" status
 2. Verify Data API is enabled in RDS console
 3. Run `terraform output` in `5_database` to get correct ARNs
+4. Update environment variables with actual ARNs
 
 ### Issue 6: AWS Free plan account restrictions
 
@@ -522,7 +534,6 @@ The most common issues relate to AWS region choices! Check environment variables
 - `terraform destroy` in `5_database` does **not** delete the cluster; use `aws rds delete-db-instance` then `aws rds delete-db-cluster --skip-final-snapshot`.
 - Paid-plan course version of `main.tf`: `git show fbab9eb:terraform/5_database/main.tf`.
 - Change IAM policies only via the console, with the user (`AlexRDSCustomPolicy` needs `rds:Enable*` and `rds-db:connect`).
-4. Update environment variables with actual ARNs
 
 ---
 

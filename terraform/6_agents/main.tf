@@ -201,7 +201,7 @@ resource "aws_s3_bucket" "lambda_packages" {
 
 # Upload Lambda packages to S3
 resource "aws_s3_object" "lambda_packages" {
-  for_each = toset(["planner", "tagger", "reporter", "charter", "retirement"])
+  for_each = toset(["planner", "tagger", "reporter", "charter", "retirement", "growth"])
   
   bucket = aws_s3_bucket.lambda_packages.id
   key    = "${each.key}/${each.key}_lambda.zip"
@@ -431,9 +431,47 @@ resource "aws_lambda_function" "retirement" {
   depends_on = [aws_s3_object.lambda_packages["retirement"]]
 }
 
+# High Growth Value Scout Lambda
+resource "aws_lambda_function" "growth" {
+  function_name = "alex-growth"
+  role          = aws_iam_role.lambda_agents_role.arn
+
+  s3_bucket        = aws_s3_bucket.lambda_packages.id
+  s3_key           = aws_s3_object.lambda_packages["growth"].key
+  source_code_hash = fileexists("${path.module}/../../backend/growth/growth_lambda.zip") ? filebase64sha256("${path.module}/../../backend/growth/growth_lambda.zip") : null
+
+  handler     = "lambda_handler.lambda_handler"
+  runtime     = "python3.12"
+  timeout     = 300
+  memory_size = 1024
+
+  environment {
+    variables = {
+      AURORA_CLUSTER_ARN  = var.aurora_cluster_arn
+      AURORA_SECRET_ARN   = var.aurora_secret_arn
+      DATABASE_NAME       = "alex"
+      BEDROCK_MODEL_ID    = var.bedrock_model_id
+      BEDROCK_REGION      = var.bedrock_region
+      DEFAULT_AWS_REGION  = var.aws_region
+      LANGFUSE_PUBLIC_KEY = var.langfuse_public_key
+      LANGFUSE_SECRET_KEY = var.langfuse_secret_key
+      LANGFUSE_HOST       = var.langfuse_host
+      OPENAI_API_KEY      = var.openai_api_key
+    }
+  }
+
+  tags = {
+    Project = "alex"
+    Part    = "6"
+    Agent   = "growth"
+  }
+
+  depends_on = [aws_s3_object.lambda_packages["growth"]]
+}
+
 # CloudWatch Log Groups
 resource "aws_cloudwatch_log_group" "agent_logs" {
-  for_each = toset(["planner", "tagger", "reporter", "charter", "retirement"])
+  for_each = toset(["planner", "tagger", "reporter", "charter", "retirement", "growth"])
   
   name              = "/aws/lambda/alex-${each.key}"
   retention_in_days = 7
