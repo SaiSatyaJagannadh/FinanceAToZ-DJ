@@ -559,8 +559,8 @@ async def trigger_analysis(request: AnalyzeRequest, clerk_user_id: str = Depends
         logger.error(f"Error triggering analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-CHAT_SYSTEM = """You are Finora, the user's AI financial guide inside the Finora portfolio app.
-You can see the user's real portfolio, their FIRE / risk profile, and the latest results from Finora's
+CHAT_SYSTEM = """You are FinFreedom AI, the user's AI financial guide inside the FinFreedom AI portfolio app.
+You can see the user's real portfolio, their FIRE / risk profile, and the latest results from FinFreedom AI's
 AI agents (portfolio report, retirement projection, high growth picks). Use them: name their actual
 holdings, values and agent findings. If something isn't in the data, say so and suggest running a
 new analysis from the Advisor Team page. Keep answers short (under 200 words), use bullets where useful.

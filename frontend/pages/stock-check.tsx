@@ -11,7 +11,7 @@ export default function StockCheckPage() {
   return (
     <>
       <Head>
-        <title>Stock Check - Finora</title>
+        <title>Stock Check - FinFreedom AI</title>
       </Head>
       <Layout>
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">

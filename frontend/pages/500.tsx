@@ -5,7 +5,7 @@ export default function Custom500() {
   return (
     <>
       <Head>
-        <title>500 - Server Error | Finora</title>
+        <title>500 - Server Error | FinFreedom AI</title>
       </Head>
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="text-center">

@@ -342,7 +342,7 @@ export default function AdvisorTeam() {
   return (
     <>
       <Head>
-        <title>Advisor Team - Finora</title>
+        <title>Advisor Team - FinFreedom AI</title>
       </Head>
       <Layout>
       <div className="min-h-screen bg-gray-50 py-8">

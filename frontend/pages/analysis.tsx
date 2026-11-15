@@ -533,7 +533,7 @@ export default function Analysis() {
   return (
     <>
       <Head>
-        <title>Analysis - Finora</title>
+        <title>Analysis - FinFreedom AI</title>
       </Head>
       <Layout>
       <div className="min-h-screen bg-gray-50 py-8">

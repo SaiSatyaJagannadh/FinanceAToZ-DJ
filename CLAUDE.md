@@ -319,7 +319,7 @@ There is no pytest, ruff or JS test suite. The `test_*.py` files are standalone 
     - FinViz returns 403 from scripts, so `yahoo_estimates()` supplies the forward EPS growth that `projectionMoat.js` reads.
     - `exchange: "IN"` tries NSE, then BSE.
     - `POST /search` maps a name to a symbol (yfinance Search). The add-position form uses it.
-  - **Branding:** the UI calls the product **Finora**. AWS resources, packages and code identifiers still use `alex`.
+  - **Branding:** the UI calls the product **FinFreedom AI** (renamed from Finora). AWS resources, packages and code identifiers still use `alex`.
   - **Signed-in chat** is `POST /api/chat` in `backend/api/main.py`. It calls Bedrock directly and grounds the answer in `portfolio_context()`: the profile, holdings and latest completed job's report, retirement and growth payloads. IAM and env come from `terraform/7_frontend`. To test locally, run `uv run test_portfolio_chat.py` in `backend/api` (it uses `test_user_001`).
   - **`users.profile` JSONB** (`migrations/003_user_profile.sql`, which is also not in `run_migrations.py`) holds the dashboard's FIRE inputs and risk assessment. Saving it also sets `years_until_retirement`, `target_retirement_income` and `asset_class_targets`. The growth agent reads `profile.risk_profile`.
   - **`POST /api/positions`** accepts `name` and fires the Tagger asynchronously for new instruments.

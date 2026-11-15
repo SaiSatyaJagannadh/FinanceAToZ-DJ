@@ -49,7 +49,7 @@ export default function Layout({ children }: LayoutProps) {
               <div className="flex items-center gap-8">
                 <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
                   <span className="w-8 h-8 rounded-lg bg-primary grid place-items-center font-bold">F</span>
-                  Finora
+                  FinFreedom AI
                 </Link>
                 <div className="hidden md:flex items-center gap-1">{navLinks}</div>
               </div>
@@ -87,7 +87,7 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <div className="mt-4 pt-4 border-t border-gray-200">
               <p className="text-xs text-gray-500 text-center">
-                © 2025 Finora. Powered by AI agents and built with care.
+                © 2025 FinFreedom AI. Powered by AI agents and built with care.
               </p>
             </div>
           </div>

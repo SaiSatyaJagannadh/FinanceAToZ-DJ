@@ -303,7 +303,7 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
           </div>
 
           <p className="mt-4 text-xs text-gray-400">
-            Mechanical scores from live data, not investment advice. Ask Finora (chat, bottom right) to explain this result.
+            Mechanical scores from live data, not investment advice. Ask FinFreedom AI (chat, bottom right) to explain this result.
           </p>
 
           <StockDetails r={result} />

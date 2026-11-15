@@ -322,7 +322,7 @@ export default function AccountDetail() {
     return (account ? Number(account.cash_balance) : 0) + calculatePositionsValue();
   };
 
-  // Instruments already in Finora first, then live search results not already listed
+  // Instruments already in FinFreedom AI first, then live search results not already listed
   const localMatches: SearchResult[] = instruments.filter(inst =>
     inst.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
     inst.name.toLowerCase().includes(searchTerm.toLowerCase())

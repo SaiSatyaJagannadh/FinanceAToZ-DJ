@@ -388,7 +388,7 @@ export default function Dashboard() {
   return (
     <>
       <Head>
-        <title>Dashboard - Finora</title>
+        <title>Dashboard - FinFreedom AI</title>
       </Head>
       <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -412,7 +412,7 @@ export default function Dashboard() {
           <>
             {accounts.length === 0 && (
               <div className="mb-8 p-6 rounded-xl bg-gradient-to-r from-primary/10 to-ai-accent/10 border border-primary/20">
-                <h2 className="text-xl font-semibold text-dark">Welcome to Finora! Let&apos;s set up your portfolio</h2>
+                <h2 className="text-xl font-semibold text-dark">Welcome to FinFreedom AI! Let&apos;s set up your portfolio</h2>
                 <ol className="mt-3 space-y-1 text-gray-700 list-decimal ml-5">
                   <li>Add an account (e.g. 401k, Roth IRA, brokerage)</li>
                   <li>Add the ETFs and stocks you hold in it</li>
