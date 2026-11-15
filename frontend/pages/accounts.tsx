@@ -22,6 +22,22 @@ interface Account {
   positions?: Position[];
 }
 
+// Common account types, shown as one-click suggestions. [name, purpose]
+const ACCOUNT_TYPES: [string, string][] = [
+  ['401(k)', 'Employer retirement account (US)'],
+  ['Roth IRA', 'Tax-free retirement savings (US)'],
+  ['Traditional IRA', 'Tax-deferred retirement savings (US)'],
+  ['Taxable Brokerage', 'Long-term investing'],
+  ['HSA', 'Health Savings Account, triple tax advantage (US)'],
+  ['529 Plan', 'Education savings (US)'],
+  ['Emergency Fund', 'High-yield savings, 3-6 months of expenses'],
+  ['Demat (India)', 'Indian stocks and ETFs'],
+  ['Mutual Funds / SIP (India)', 'Monthly SIP investing'],
+  ['EPF (India)', 'Employee Provident Fund, retirement'],
+  ['PPF (India)', 'Public Provident Fund, 15-year tax-free'],
+  ['NPS (India)', 'National Pension System, retirement'],
+];
+
 export default function Accounts() {
   const { getToken } = useAuth();
   const router = useRouter();
@@ -267,7 +283,7 @@ export default function Accounts() {
   return (
     <>
       <Head>
-        <title>Accounts - Finora</title>
+        <title>Accounts - FinFreedom AI</title>
       </Head>
       <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -338,18 +354,14 @@ export default function Accounts() {
               </ol>
               <p className="mt-5 text-sm font-medium text-gray-700">Start with a common account type:</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {[
-                  ['401(k)', 'Employer retirement account'],
-                  ['Roth IRA', 'Tax-free retirement savings'],
-                  ['Taxable Brokerage', 'Long-term investing'],
-                  ['Demat (India)', 'Indian stocks and mutual funds'],
-                ].map(([name, purpose]) => (
+                {ACCOUNT_TYPES.map(([name, purpose]) => (
                   <button
                     key={name}
                     onClick={() => {
                       setNewAccount({ name, purpose, cash_balance: '' });
                       setShowAddModal(true);
                     }}
+                    title={purpose}
                     className="px-4 py-2 rounded-lg bg-white border border-gray-300 hover:border-primary hover:text-primary text-sm transition"
                   >
                     + {name}
@@ -463,6 +475,33 @@ export default function Accounts() {
                   </tbody>
                 </table>
               </div>
+
+              {(() => {
+                const have = new Set(accounts.map(a => a.account_name.toLowerCase()));
+                const missing = ACCOUNT_TYPES.filter(([name]) => !have.has(name.toLowerCase()));
+                if (missing.length === 0) return null;
+                return (
+                  <div className="mt-6 rounded-lg border border-dashed border-gray-300 p-4">
+                    <p className="text-sm font-medium text-gray-700">Suggested accounts to add</p>
+                    <p className="text-xs text-gray-500 mt-1">Add every account you own so the AI agents see your full financial picture.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {missing.map(([name, purpose]) => (
+                        <button
+                          key={name}
+                          title={purpose}
+                          onClick={() => {
+                            setNewAccount({ name, purpose, cash_balance: '' });
+                            setShowAddModal(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-gray-300 hover:border-primary hover:text-primary text-sm transition"
+                        >
+                          + {name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
@@ -475,6 +514,27 @@ export default function Accounts() {
 
               <div className="space-y-4">
                 <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Quick pick</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {ACCOUNT_TYPES.map(([name, purpose]) => (
+                      <button
+                        key={name}
+                        type="button"
+                        title={purpose}
+                        onClick={() => setNewAccount({ ...newAccount, name, purpose })}
+                        className={`px-2.5 py-1 rounded-full border text-xs transition ${
+                          newAccount.name === name
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'border-gray-300 hover:border-primary hover:text-primary'
+                        }`}
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Account Name *
                   </label>
@@ -483,7 +543,7 @@ export default function Accounts() {
                     value={newAccount.name}
                     onChange={(e) => setNewAccount({ ...newAccount, name: e.target.value })}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="e.g., 401k, Roth IRA, Brokerage"
+                    placeholder="e.g., 401(k), Roth IRA, Demat, PPF"
                   />
                 </div>
 
