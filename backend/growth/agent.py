@@ -2,6 +2,7 @@
 High Growth Value Scout Agent - suggests long-term growth funds and stocks.
 """
 
+import json
 import os
 from typing import Dict, Any
 
@@ -42,9 +43,13 @@ def create_agent(job_id: str, portfolio_data: Dict[str, Any], db):
 
     holdings, total = summarize_holdings(portfolio_data)
     universe = ", ".join(f"{i['symbol']} ({i.get('name', '')})" for i in db.instruments.find_all()[:60])
+    user = db.users.find_by_clerk_id(portfolio_data.get("user_id", "")) or {}
+    profile = user.get("profile") or {}
 
     task = GROWTH_TASK_TEMPLATE.format(
         years_until_retirement=portfolio_data.get("years_until_retirement", 30),
+        risk_profile=profile.get("risk_profile", "not assessed (assume Moderate)"),
+        fire=json.dumps(profile.get("fire") or "not set"),
         total_value=total,
         holdings=holdings,
         universe=universe,

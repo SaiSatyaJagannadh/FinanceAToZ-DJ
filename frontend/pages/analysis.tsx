@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import Layout from '../components/Layout';
 import { API_URL } from '../lib/config';
+import { parseUtc } from '../lib/dates';
 import Head from 'next/head';
 
 interface Job {
@@ -46,6 +47,7 @@ interface JobListItem {
 
 type TabType = 'overview' | 'charts' | 'retirement' | 'growth';
 
+
 const TABS: [TabType, string][] = [
   ['overview', '📊 Overview'],
   ['charts', '📈 Charts'],
@@ -75,6 +77,39 @@ export default function Analysis() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [fetchingLatest, setFetchingLatest] = useState(false);
+  const [history, setHistory] = useState<JobListItem[]>([]);
+
+  // Deep link to a tab, e.g. /analysis?job_id=...&tab=growth (from Advisor Team)
+  useEffect(() => {
+    const tab = router.query.tab as TabType | undefined;
+    if (tab && TABS.some(([t]) => t === tab)) setActiveTab(tab);
+  }, [router.query.tab]);
+
+  // All past analyses for the history picker
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await getToken();
+        const res = await fetch(`${API_URL}/api/jobs`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          setHistory((data.jobs || []).sort((a: JobListItem, b: JobListItem) =>
+            parseUtc(b.created_at).getTime() - parseUtc(a.created_at).getTime()));
+        }
+      } catch {
+        /* history is optional */
+      }
+    })();
+  }, [getToken]);
+
+  const whenLabel = (iso: string) => {
+    const d = parseUtc(iso);
+    const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(d).setHours(0, 0, 0, 0)) / 86400000);
+    const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    if (days === 0) return `Today, ${time}`;
+    if (days === 1) return `Yesterday, ${time}`;
+    return `${d.toLocaleDateString([], { month: 'short', day: 'numeric', year: days > 300 ? 'numeric' : undefined })}, ${time}`;
+  };
 
   useEffect(() => {
     const loadJob = async (jobId: string) => {
@@ -147,7 +182,7 @@ export default function Analysis() {
 
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+    return parseUtc(dateString).toLocaleString('en-US', {
       month: 'long',
       day: 'numeric',
       year: 'numeric',
@@ -498,7 +533,7 @@ export default function Analysis() {
   return (
     <>
       <Head>
-        <title>Analysis - Alex AI Financial Advisor</title>
+        <title>Analysis - Finora</title>
       </Head>
       <Layout>
       <div className="min-h-screen bg-gray-50 py-8">
@@ -509,7 +544,8 @@ export default function Analysis() {
               <div>
                 <h1 className="text-3xl font-bold text-dark mb-2">Portfolio Analysis Results</h1>
                 <p className="text-gray-600">
-                  Completed on {formatDate(job.created_at)}
+                  Showing the analysis from <strong>{whenLabel(job.created_at)}</strong>
+                  {history[0]?.id === job.id ? ' (your latest)' : ''}
                 </p>
               </div>
               <button
@@ -520,6 +556,32 @@ export default function Analysis() {
               </button>
             </div>
           </div>
+
+          {/* Analysis history */}
+          {history.length > 1 && (
+            <div className="bg-white rounded-lg shadow px-6 py-4 mb-6">
+              <p className="text-sm font-medium text-gray-700 mb-2">Your analyses ({history.length})</p>
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {history.map((h, i) => (
+                  <button
+                    key={h.id}
+                    onClick={() => router.push(`/analysis?job_id=${h.id}`)}
+                    disabled={h.status !== 'completed'}
+                    className={`shrink-0 text-left px-3 py-2 rounded-lg border text-sm transition ${
+                      h.id === job.id
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-gray-200 hover:border-primary disabled:opacity-50 disabled:hover:border-gray-200'
+                    }`}
+                  >
+                    <span className="block font-medium whitespace-nowrap">{whenLabel(h.created_at)}</span>
+                    <span className="block text-xs text-gray-500">
+                      {h.id === job.id ? 'Viewing' : i === 0 ? 'Latest' : h.status === 'completed' ? 'Completed' : h.status}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Tabs */}
           <div className="bg-white rounded-lg shadow mb-8">

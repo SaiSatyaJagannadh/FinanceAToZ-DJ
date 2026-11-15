@@ -8,7 +8,12 @@ import ChatWidget from "@/components/ChatWidget";
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <ErrorBoundary>
-      <ClerkProvider {...pageProps} afterSignOutUrl="/">
+      <ClerkProvider
+        {...pageProps}
+        afterSignOutUrl="/"
+        signInForceRedirectUrl="/dashboard/"
+        signUpForceRedirectUrl="/dashboard/"
+      >
         <Component {...pageProps} />
         <ToastContainer />
         <ChatWidget />

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { SignUpButton, useAuth } from "@clerk/nextjs";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { STOCKCHECK_URL } from "../lib/config";
+import { API_URL, STOCKCHECK_URL } from "../lib/config";
 import { LAST_CHECK_KEY } from "./StockCheck";
 
 interface Message {
@@ -13,15 +13,24 @@ interface Message {
 // Signed-out visitors can ask a few questions before we ask them to sign up
 const FREE_QUESTIONS = 5;
 
-const SUGGESTIONS = [
-  "What can Alex do for me?",
+const PUBLIC_SUGGESTIONS = [
+  "What can Finora do for me?",
   "Explain my last stock check",
   "What is an index fund?",
   "How much should I invest for long-term growth?",
 ];
 
+// Signed-in chat goes to /api/chat, which sees the user's portfolio and latest agent analysis
+const PORTFOLIO_SUGGESTIONS = [
+  "How is my portfolio doing?",
+  "What did the agents find in my last analysis?",
+  "Am I on track to retire?",
+  "Which high growth picks fit my risk profile?",
+];
+const RUN_AGENTS = "🤖 Run all agents on my portfolio now";
+
 export default function ChatWidget() {
-  const { isSignedIn } = useAuth();
+  const { isSignedIn, getToken } = useAuth();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -35,7 +44,33 @@ export default function ChatWidget() {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
 
+  // Start a full multi-agent analysis (same as the Advisor Team button)
+  const runAgents = async () => {
+    setMessages((m) => [...m, { role: "user", content: RUN_AGENTS }]);
+    setLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch(`${API_URL}/api/analyze`, {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ analysis_type: "portfolio", options: {} }),
+      });
+      const data = await res.json();
+      setMessages((m) => [...m, {
+        role: "assistant",
+        content: res.ok
+          ? `Started! The Planner, Reporter, Charter, Retirement and High Growth agents are analyzing your portfolio (about a minute). Follow along on [Advisor Team](/advisor-team), then [see the results](/analysis?job_id=${data.job_id}). Ask me about it once it's done.`
+          : data.detail || "Couldn't start the analysis.",
+      }]);
+    } catch {
+      setMessages((m) => [...m, { role: "assistant", content: "Couldn't start the analysis. Please try again." }]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const send = async (text: string) => {
+    if (text === RUN_AGENTS) return runAgents();
     if (!text.trim() || loading || limitHit) return;
     const next: Message[] = [...messages, { role: "user", content: text.trim() }];
     setMessages(next);
@@ -50,13 +85,24 @@ export default function ChatWidget() {
     }
 
     try {
-      const res = await fetch(`${STOCKCHECK_URL}/chat`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: next, context }),
-      });
+      let res: Response;
+      if (isSignedIn) {
+        const token = await getToken();
+        res = await fetch(`${API_URL}/api/chat`, {
+          method: "POST",
+          headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ messages: next, context }),
+        });
+      } else {
+        res = await fetch(`${STOCKCHECK_URL}/chat`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ messages: next, context }),
+        });
+      }
       const data = await res.json();
-      setMessages([...next, { role: "assistant", content: res.ok ? data.reply : data.error || "Sorry, something went wrong." }]);
+      const reply = res.ok ? data.reply : data.detail || data.error || "Sorry, something went wrong.";
+      setMessages([...next, { role: "assistant", content: reply }]);
     } catch {
       setMessages([...next, { role: "assistant", content: "I couldn't reach the server. Please try again." }]);
     } finally {
@@ -68,28 +114,34 @@ export default function ChatWidget() {
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        aria-label={open ? "Close chat" : "Ask Alex a question"}
+        aria-label={open ? "Close chat" : "Ask Finora a question"}
         className="fixed bottom-5 right-5 z-50 flex items-center gap-2 px-4 py-3 rounded-full bg-ai-accent text-white font-semibold shadow-xl hover:brightness-110 transition"
       >
-        {open ? "✕" : "💬"} <span className="hidden sm:inline">{open ? "Close" : "Ask Alex"}</span>
+        {open ? "✕" : "💬"} <span className="hidden sm:inline">{open ? "Close" : "Ask Finora"}</span>
       </button>
 
       {open && (
         <div
           role="dialog"
-          aria-label="Ask Alex"
+          aria-label="Ask Finora"
           className="fixed z-50 bottom-20 right-4 left-4 sm:left-auto sm:w-96 h-[min(32rem,calc(100vh-7rem))] flex flex-col bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden"
         >
           <div className="px-4 py-3 bg-dark text-white">
-            <p className="font-semibold">Ask Alex</p>
-            <p className="text-xs text-white/70">Investing questions, stock checks explained, how Alex works</p>
+            <p className="font-semibold">Ask Finora</p>
+            <p className="text-xs text-white/70">
+              {isSignedIn ? "Connected to your portfolio and your agents' latest analysis" : "Investing questions, stock checks explained, how Finora works"}
+            </p>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3 text-sm">
             {messages.length === 0 && (
               <div className="space-y-2">
-                <p className="text-gray-600">Hi! I&apos;m Alex. Ask me anything about investing, or tap a suggestion:</p>
-                {SUGGESTIONS.map((s) => (
+                <p className="text-gray-600">
+                  {isSignedIn
+                    ? "Hi! I can see your accounts, holdings, FIRE plan and your agents' latest analysis. Ask me anything:"
+                    : "Hi! I'm Finora. Ask me anything about investing, or tap a suggestion:"}
+                </p>
+                {(isSignedIn ? [...PORTFOLIO_SUGGESTIONS, RUN_AGENTS] : PUBLIC_SUGGESTIONS).map((s) => (
                   <button key={s} onClick={() => send(s)}
                     className="block w-full text-left px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 transition">
                     {s}
@@ -110,7 +162,7 @@ export default function ChatWidget() {
                 </div>
               </div>
             ))}
-            {loading && <div className="text-gray-400" aria-live="polite">Alex is typing…</div>}
+            {loading && <div className="text-gray-400" aria-live="polite">Finora is typing…</div>}
             {limitHit && (
               <div className="p-3 rounded-xl bg-ai-accent/10 text-center">
                 <p className="font-medium">Want to keep chatting?</p>

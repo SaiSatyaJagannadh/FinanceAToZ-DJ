@@ -189,6 +189,24 @@ resource "aws_iam_role_policy" "api_lambda_invoke" {
   })
 }
 
+# Bedrock access for the portfolio chat (/api/chat)
+resource "aws_iam_role_policy" "api_lambda_bedrock" {
+  name = "${local.name_prefix}-api-lambda-bedrock"
+  role = aws_iam_role.api_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
+      Resource = [
+        "arn:aws:bedrock:*::foundation-model/*",
+        "arn:aws:bedrock:*:*:inference-profile/*"
+      ]
+    }]
+  })
+}
+
 # Lambda function for API
 resource "aws_lambda_function" "api" {
   filename         = "${path.module}/../../backend/api/api_lambda.zip"
@@ -219,6 +237,10 @@ resource "aws_lambda_function" "api" {
 
       # CORS configuration
       CORS_ORIGINS = "http://localhost:3000,https://${aws_cloudfront_distribution.main.domain_name}"
+
+      # Portfolio chat (/api/chat)
+      BEDROCK_MODEL_ID = var.bedrock_model_id
+      BEDROCK_REGION   = var.bedrock_region
     }
   }
 

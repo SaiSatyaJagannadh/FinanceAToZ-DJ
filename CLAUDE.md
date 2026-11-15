@@ -314,6 +314,15 @@ There is no pytest, ruff or JS test suite. The `test_*.py` files are standalone 
     - `POST /chat` calls Nova Pro through the Bedrock `converse` API.
     - The frontend reads the URL from `NEXT_PUBLIC_STOCKCHECK_URL` in `frontend/.env.local`, which `scripts/deploy.py` copies into the production build.
     - Signed-out users get 3 checks and 5 chat questions before a sign-up prompt. This is enforced client-side only (localStorage/React state).
+    - `/check` also returns FinAI's projection/moat (`engine/extrasRunner.js`) and Yahoo analyst ratings, upgrades/downgrades, events and news. FinViz returns 403 from scripts, so it is best-effort.
+    - `exchange: "IN"` tries NSE, then BSE.
+    - `POST /search` maps a name to a symbol (yfinance Search). The add-position form uses it.
+  - **Branding:** the UI calls the product **Finora**. AWS resources, packages and code identifiers still use `alex`.
+  - **Signed-in chat** is `POST /api/chat` in `backend/api/main.py`. It calls Bedrock directly and grounds the answer in `portfolio_context()`: the profile, holdings and latest completed job's report, retirement and growth payloads. IAM and env come from `terraform/7_frontend`. To test locally, run `uv run test_portfolio_chat.py` in `backend/api` (it uses `test_user_001`).
+  - **`users.profile` JSONB** (`migrations/003_user_profile.sql`, which is also not in `run_migrations.py`) holds the dashboard's FIRE inputs and risk assessment. Saving it also sets `years_until_retirement`, `target_retirement_income` and `asset_class_targets`. The growth agent reads `profile.risk_profile`.
+  - **`POST /api/positions`** accepts `name` and fires the Tagger asynchronously for new instruments.
+  - **Frontend export uses `trailingSlash: true`** (`dashboard/index.html`). Without it, the S3 website endpoint 404s on `/dashboard`, CloudFront's error page serves the landing page, and the post-login redirect appears broken. That same error mapping turns API 4xx responses through CloudFront into a 200 HTML page.
+  - **Job timestamps** from Aurora are UTC with no zone. Parse them with `frontend/lib/dates.ts` `parseUtc`.
 - **Reporter guardrail:** `backend/reporter/judge.py` runs an LLM-as-judge on the report. If the score is below `GUARD_AGAINST_SCORE` (0.3, defined in `reporter/lambda_handler.py`), the report is replaced with an apology. The judge runs **only when LangFuse is configured** (`observability.py`, enabled by `LANGFUSE_SECRET_KEY`).
 - **Frontend:**
   - Next.js Pages Router with `output: 'export'`, so it is a static site with no SSR and no API routes.

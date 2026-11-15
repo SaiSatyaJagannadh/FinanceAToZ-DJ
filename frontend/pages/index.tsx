@@ -7,12 +7,12 @@ const features = [
   {
     icon: "🔎",
     title: "Check any stock in seconds",
-    desc: "Type a US or Indian stock. Alex pulls live prices and financials, scores five pillars and gives a BUY / HOLD / SELL call with a target price.",
+    desc: "Type a US or Indian stock. Finora pulls live prices and financials, scores five pillars and gives a BUY / HOLD / SELL call with a target price.",
     free: true,
   },
   {
     icon: "💬",
-    title: "Ask Alex anything",
+    title: "Ask Finora anything",
     desc: "A chat assistant that explains your stock check, investing terms and what to look at next, in plain language.",
     free: true,
   },
@@ -41,18 +41,21 @@ const steps = [
 
 const compare: [string, boolean, boolean][] = [
   ["Stock checks (5-pillar score + BUY/HOLD/SELL)", true, true],
-  ["Ask Alex chat assistant", true, true],
+  ["Ask Finora chat assistant", true, true],
   ["Unlimited checks and questions", false, true],
   ["Track your accounts and positions", false, true],
   ["Portfolio report, charts and retirement projection", false, true],
   ["High Growth long-term fund and stock ideas", false, true],
+  ["FIRE calculator and investor risk profile", false, true],
+  ["Chat that knows your portfolio and agent results", false, true],
+  ["Research each holding: when to buy, hold or exit", false, true],
 ];
 
 export default function Home() {
   return (
     <>
       <Head>
-        <title>Alex AI Financial Advisor - Free stock checks and AI portfolio analysis</title>
+        <title>Finora - Free stock checks and AI portfolio analysis</title>
         <meta name="description" content="Check any stock free in seconds, then let six AI agents analyze your whole portfolio: report, charts, retirement projection and long-term growth ideas." />
       </Head>
       <div className="min-h-screen bg-white text-dark">
@@ -61,8 +64,8 @@ export default function Home() {
           <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_20%_20%,#209DD7_0,transparent_45%),radial-gradient(circle_at_85%_30%,#753991_0,transparent_40%)]" />
           <nav className="relative max-w-6xl mx-auto px-4 sm:px-6 py-5 flex justify-between items-center">
             <div className="flex items-center gap-2 text-lg font-semibold">
-              <span className="w-8 h-8 rounded-lg bg-primary grid place-items-center font-bold">A</span>
-              Alex
+              <span className="w-8 h-8 rounded-lg bg-primary grid place-items-center font-bold">F</span>
+              Finora
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <a href="#features" className="hidden md:inline px-3 py-2 text-sm text-white/80 hover:text-white">Features</a>
@@ -93,7 +96,7 @@ export default function Home() {
                 Know what to do with a stock <span className="text-accent">in seconds</span>
               </h1>
               <p className="mt-5 text-lg text-white/75 max-w-xl">
-                Alex scores any stock on fundamentals, growth, technicals, institutional conviction and safety, then tells you
+                Finora scores any stock on fundamentals, growth, technicals, institutional conviction and safety, then tells you
                 BUY, HOLD or SELL. Sign up and six AI agents analyze your whole portfolio.
               </p>
               <ul className="mt-6 space-y-2 text-white/85">
@@ -116,10 +119,10 @@ export default function Home() {
           </div>
         </header>
 
-        {/* What Alex does */}
+        {/* What Finora does */}
         <section id="features" className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-          <h2 className="text-3xl font-bold tracking-tight">What Alex does</h2>
-          <p className="mt-3 text-gray-600 max-w-2xl">Start free, no signup. Create an account when you want Alex to look at your whole portfolio.</p>
+          <h2 className="text-3xl font-bold tracking-tight">What Finora does</h2>
+          <p className="mt-3 text-gray-600 max-w-2xl">Start free, no signup. Create an account when you want Finora to look at your whole portfolio.</p>
           <div className="mt-10 grid md:grid-cols-3 gap-5">
             {features.map((f) => (
               <div key={f.title} className="p-6 rounded-xl border border-gray-200">
@@ -218,7 +221,7 @@ export default function Home() {
 
         <footer className="border-t border-gray-100">
           <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 pb-24 text-sm text-gray-500 space-y-2">
-            <p>© 2025 Alex AI Financial Advisor. Stock scoring engines from FinAI.</p>
+            <p>© 2025 Finora. Stock scoring engines from FinAI.</p>
             <p>
               This AI-generated advice has not been vetted by a qualified financial advisor and should not be used for trading decisions.
               For informational purposes only.

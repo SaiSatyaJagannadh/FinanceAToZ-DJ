@@ -35,7 +35,12 @@ Respond in markdown with exactly these sections:
 GROWTH_TASK_TEMPLATE = """Find long-term high-growth opportunities for this investor.
 
 Years until retirement: {years_until_retirement}
+Investor risk profile (from their risk assessment): {risk_profile}
+FIRE plan: {fire}
 Total portfolio value: ${total_value:,.0f}
+
+Match the growth allocation and the riskiness of picks to the risk profile:
+Conservative = small growth sleeve of broad funds; Very Aggressive = larger sleeve incl. thematic funds and stocks.
 
 Current holdings (symbol, name, value, % of portfolio, asset class, top sectors):
 {holdings}

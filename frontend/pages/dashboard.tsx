@@ -7,6 +7,8 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import { Skeleton, SkeletonCard } from "../components/Skeleton";
 import { showToast } from "../components/Toast";
 import Head from "next/head";
+import FinancialProfile, { Profile } from "../components/FinancialProfile";
+import { parseUtc } from "../lib/dates";
 
 interface UserData {
   clerk_user_id: string;
@@ -15,6 +17,7 @@ interface UserData {
   target_retirement_income: number;
   asset_class_targets: Record<string, number>;
   region_targets: Record<string, number>;
+  profile?: Profile | null;
 }
 
 interface Account {
@@ -385,7 +388,7 @@ export default function Dashboard() {
   return (
     <>
       <Head>
-        <title>Dashboard - Alex AI Financial Advisor</title>
+        <title>Dashboard - Finora</title>
       </Head>
       <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -409,7 +412,7 @@ export default function Dashboard() {
           <>
             {accounts.length === 0 && (
               <div className="mb-8 p-6 rounded-xl bg-gradient-to-r from-primary/10 to-ai-accent/10 border border-primary/20">
-                <h2 className="text-xl font-semibold text-dark">Welcome to Alex! Let&apos;s set up your portfolio</h2>
+                <h2 className="text-xl font-semibold text-dark">Welcome to Finora! Let&apos;s set up your portfolio</h2>
                 <ol className="mt-3 space-y-1 text-gray-700 list-decimal ml-5">
                   <li>Add an account (e.g. 401k, Roth IRA, brokerage)</li>
                   <li>Add the ETFs and stocks you hold in it</li>
@@ -485,10 +488,23 @@ export default function Dashboard() {
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <h3 className="text-sm font-medium text-gray-500 mb-3">Last Analysis</h3>
             <p className="text-3xl font-bold text-dark">
-              {lastAnalysisDate ? new Date(lastAnalysisDate).toLocaleDateString() : "Never"}
+              {lastAnalysisDate ? parseUtc(lastAnalysisDate).toLocaleDateString() : "Never"}
             </p>
           </div>
         </div>
+
+        <FinancialProfile
+          profile={userData?.profile}
+          portfolioValue={totalValue}
+          onSaved={(u) => {
+            const updated = u as unknown as UserData;
+            setUserData(updated);
+            setYearsUntilRetirement(updated.years_until_retirement || 0);
+            setTargetRetirementIncome(Number(updated.target_retirement_income) || 0);
+            setEquityTarget(updated.asset_class_targets?.equity || 0);
+            setFixedIncomeTarget(updated.asset_class_targets?.fixed_income || 0);
+          }}
+        />
 
         {/* User Settings Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">

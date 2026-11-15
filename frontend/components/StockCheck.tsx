@@ -1,6 +1,8 @@
-import { useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState } from "react";
 import { SignUpButton } from "@clerk/nextjs";
 import { STOCKCHECK_URL } from "../lib/config";
+import StockDetails from "./StockDetails";
 
 export interface StockResult {
   symbol: string;
@@ -24,6 +26,28 @@ export interface StockResult {
     investmentHorizon: string;
   };
   priceHistory: number[];
+  // Full FinAI breakdown + Yahoo market intel (shapes come from the engine; see StockDetails)
+  details?: Record<"fundamental" | "technical" | "growth" | "mutualFund" | "risk", any>;
+  projection?: any;
+  moat?: any;
+  sectorOutlook?: any;
+  shareholding?: Record<string, number> | null;
+  analystRatings?: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number } | null;
+  analystActions?: any[];
+  priceTargets?: { current: number; high: number; low: number; mean: number; median: number } | null;
+  events?: { event: string; date: string }[];
+  news?: { title: string; publisher: string; date: string; summary: string; url: string }[];
+  sources?: Record<string, string>;
+}
+
+// Compact version saved for the chat assistant's context
+export function summarizeForChat(r: StockResult) {
+  return {
+    symbol: r.symbol, exchange: r.exchange, name: r.name, sector: r.sector, price: r.price,
+    scores: r.scores, recommendation: r.recommendation, metrics: r.metrics,
+    analystRatings: r.analystRatings, priceTargets: r.priceTargets,
+    moat: r.moat?.verdict, events: r.events, headlines: (r.news || []).slice(0, 4).map((n) => n.title),
+  };
 }
 
 const PILLARS: { key: keyof StockResult["scores"]; label: string; help: string }[] = [
@@ -34,9 +58,11 @@ const PILLARS: { key: keyof StockResult["scores"]; label: string; help: string }
   { key: "risk", label: "Safety", help: "Volatility, leverage and liquidity (higher = safer)" },
 ];
 
-const QUICK_PICKS: [string, string][] = [
-  ["AAPL", "US"], ["NVDA", "US"], ["MSFT", "US"], ["INFY", "NSE"], ["TCS", "NSE"], ["RELIANCE", "NSE"],
-];
+// Quick picks per market: US shows only US stocks, India only Indian ones (NSE/BSE handled as one)
+const QUICK_PICKS: Record<string, string[]> = {
+  US: ["AAPL", "NVDA", "MSFT", "AMZN", "GOOGL", "TSLA"],
+  IN: ["RELIANCE", "INFY", "TCS", "HDFCBANK", "ICICIBANK", "ITC"],
+};
 
 const ACTION_STYLE = {
   BUY: "bg-success text-white",
@@ -75,13 +101,25 @@ function Sparkline({ points }: { points: number[] }) {
   );
 }
 
-export default function StockCheck({ gated = false }: { gated?: boolean }) {
+interface Props {
+  gated?: boolean;
+  initialSymbol?: string;
+  initialMarket?: "US" | "IN";
+}
+
+export default function StockCheck({ gated = false, initialSymbol, initialMarket = "US" }: Props) {
   const [symbol, setSymbol] = useState("");
-  const [exchange, setExchange] = useState("US");
+  const [exchange, setExchange] = useState<string>(initialMarket);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<StockResult | null>(null);
   const [limitHit, setLimitHit] = useState(false);
+
+  // Deep link from the accounts page: /stock-check?symbol=AAPL
+  useEffect(() => {
+    if (initialSymbol) run(initialSymbol, initialMarket);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSymbol]);
 
   const run = async (sym: string, exch: string) => {
     if (!sym.trim()) return;
@@ -103,7 +141,7 @@ export default function StockCheck({ gated = false }: { gated?: boolean }) {
       if (!res.ok) throw new Error(data.error || "Check failed");
       setResult(data);
       try {
-        sessionStorage.setItem(LAST_CHECK_KEY, JSON.stringify({ ...data, priceHistory: undefined }));
+        sessionStorage.setItem(LAST_CHECK_KEY, JSON.stringify(summarizeForChat(data)));
         if (gated) localStorage.setItem(COUNT_KEY, String(readCount() + 1));
       } catch {
         /* storage blocked: the check still works */
@@ -133,22 +171,20 @@ export default function StockCheck({ gated = false }: { gated?: boolean }) {
           id="stock-symbol"
           value={symbol}
           onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-          placeholder="Stock symbol, e.g. AAPL or INFY"
+          placeholder={exchange === "IN" ? "NSE/BSE symbol, e.g. RELIANCE" : "US symbol, e.g. AAPL"}
           className="flex-1 min-w-0 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
           maxLength={20}
         />
         <div className="flex gap-2">
-          <label className="sr-only" htmlFor="stock-exchange">Exchange</label>
-          <select
-            id="stock-exchange"
-            value={exchange}
-            onChange={(e) => setExchange(e.target.value)}
-            className="px-3 py-3 rounded-lg border border-gray-300 bg-white"
-          >
-            <option value="US">US</option>
-            <option value="NSE">NSE (India)</option>
-            <option value="BSE">BSE (India)</option>
-          </select>
+          <div role="group" aria-label="Market" className="flex rounded-lg border border-gray-300 overflow-hidden">
+            {[["US", "🇺🇸 US"], ["IN", "🇮🇳 India"]].map(([v, l]) => (
+              <button key={v} type="button" onClick={() => { setExchange(v); setResult(null); }}
+                aria-pressed={exchange === v}
+                className={`px-3 py-3 text-sm whitespace-nowrap ${exchange === v ? "bg-dark text-white" : "bg-white text-gray-700 hover:bg-gray-50"}`}>
+                {l}
+              </button>
+            ))}
+          </div>
           <button
             type="submit"
             disabled={loading || !symbol.trim()}
@@ -161,8 +197,8 @@ export default function StockCheck({ gated = false }: { gated?: boolean }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
         <span className="text-gray-500">Try:</span>
-        {QUICK_PICKS.map(([s, x]) => (
-          <button key={s} onClick={() => run(s, x)} disabled={loading}
+        {(QUICK_PICKS[exchange] || QUICK_PICKS.US).map((s) => (
+          <button key={s} onClick={() => run(s, exchange)} disabled={loading}
             className="px-2.5 py-1 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-700 transition">
             {s}
           </button>
@@ -253,8 +289,10 @@ export default function StockCheck({ gated = false }: { gated?: boolean }) {
           </div>
 
           <p className="mt-4 text-xs text-gray-400">
-            Mechanical scores from live data, not investment advice. Ask Alex (chat, bottom right) to explain this result.
+            Mechanical scores from live data, not investment advice. Ask Finora (chat, bottom right) to explain this result.
           </p>
+
+          <StockDetails r={result} />
         </div>
       )}
     </div>

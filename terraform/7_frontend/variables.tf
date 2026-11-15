@@ -15,3 +15,14 @@ variable "clerk_issuer" {
   type        = string
   default     = ""  # Not actually used but kept for backwards compatibility
 }
+variable "bedrock_model_id" {
+  description = "Bedrock model for the portfolio chat"
+  type        = string
+  default     = "us.amazon.nova-pro-v1:0"
+}
+
+variable "bedrock_region" {
+  description = "Region for Bedrock calls from the API"
+  type        = string
+  default     = "us-west-2"
+}

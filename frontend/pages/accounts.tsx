@@ -267,7 +267,7 @@ export default function Accounts() {
   return (
     <>
       <Head>
-        <title>Accounts - Alex AI Financial Advisor</title>
+        <title>Accounts - Finora</title>
       </Head>
       <Layout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -321,12 +321,43 @@ export default function Accounts() {
           {loading ? (
             <SkeletonTable rows={3} />
           ) : accounts.length === 0 ? (
-            <div className="bg-primary/10 border border-primary/20 rounded-lg p-6 text-center">
-              <p className="text-primary font-semibold mb-2">
-                No accounts found
-              </p>
-              <p className="text-sm text-gray-600">
-                Click the &quot;Populate Test Data&quot; button above to create sample accounts with positions
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 to-ai-accent/5 p-6">
+              <h3 className="text-lg font-semibold text-dark">Let&apos;s set up your first account</h3>
+              <ol className="mt-4 grid md:grid-cols-3 gap-4">
+                {[
+                  ['1', 'Create an account', 'One per real account you own: 401(k), IRA, brokerage, or an Indian demat account.'],
+                  ['2', 'Add your holdings', 'Open the account and add each stock or fund. Type a company name (e.g. "apple") and pick it from the list.'],
+                  ['3', 'Run the AI analysis', 'Go to Advisor Team. Six agents review everything and suggest what to do next.'],
+                ].map(([n, title, desc]) => (
+                  <li key={n} className="p-4 bg-white rounded-lg border border-gray-100">
+                    <span className="inline-grid place-items-center w-7 h-7 rounded-full bg-primary text-white text-sm font-bold">{n}</span>
+                    <p className="mt-2 font-medium text-dark">{title}</p>
+                    <p className="text-sm text-gray-600 mt-1">{desc}</p>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-5 text-sm font-medium text-gray-700">Start with a common account type:</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {[
+                  ['401(k)', 'Employer retirement account'],
+                  ['Roth IRA', 'Tax-free retirement savings'],
+                  ['Taxable Brokerage', 'Long-term investing'],
+                  ['Demat (India)', 'Indian stocks and mutual funds'],
+                ].map(([name, purpose]) => (
+                  <button
+                    key={name}
+                    onClick={() => {
+                      setNewAccount({ name, purpose, cash_balance: '' });
+                      setShowAddModal(true);
+                    }}
+                    className="px-4 py-2 rounded-lg bg-white border border-gray-300 hover:border-primary hover:text-primary text-sm transition"
+                  >
+                    + {name}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-4 text-xs text-gray-500">
+                Just exploring? Use &quot;Populate Test Data&quot; above to load a sample portfolio.
               </p>
             </div>
           ) : (

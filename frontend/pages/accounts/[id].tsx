@@ -1,9 +1,17 @@
 import { useAuth } from "@clerk/nextjs";
-import { useState, useEffect, useCallback } from "react";
+import { Fragment, useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import Layout from "../../components/Layout";
 import ConfirmModal from "../../components/ConfirmModal";
-import { API_URL } from "../../lib/config";
+import PositionResearch from "../../components/PositionResearch";
+import { API_URL, STOCKCHECK_URL } from "../../lib/config";
+
+interface SearchResult {
+  symbol: string;
+  name: string;
+  exchange: string;
+  type: string;
+}
 
 interface Instrument {
   symbol: string;
@@ -42,9 +50,33 @@ export default function AccountDetail() {
   const [editingPosition, setEditingPosition] = useState<string | null>(null);
   const [editedQuantity, setEditedQuantity] = useState('');
   const [showAddPosition, setShowAddPosition] = useState(false);
-  const [newPosition, setNewPosition] = useState({ symbol: '', quantity: '' });
+  const [newPosition, setNewPosition] = useState({ symbol: '', quantity: '', name: '' });
   const [searchTerm, setSearchTerm] = useState('');
   const [showSymbolSuggestions, setShowSymbolSuggestions] = useState(false);
+  const [liveResults, setLiveResults] = useState<SearchResult[]>([]);
+  const [researching, setResearching] = useState<string | null>(null);
+
+  // Live name -> symbol search ("apple" -> AAPL), debounced
+  useEffect(() => {
+    const q = searchTerm.trim();
+    if (q.length < 2) {
+      setLiveResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${STOCKCHECK_URL}/search`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ query: q }),
+        });
+        if (res.ok) setLiveResults((await res.json()).results);
+      } catch {
+        setLiveResults([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     positionId: string;
@@ -251,13 +283,14 @@ export default function AccountDetail() {
           account_id: id,
           symbol: newPosition.symbol.toUpperCase(),
           quantity: quantity,
+          name: newPosition.name || undefined,
         }),
       });
 
       if (response.ok) {
         setMessage({ type: 'success', text: 'Position added successfully' });
         setShowAddPosition(false);
-        setNewPosition({ symbol: '', quantity: '' });
+        setNewPosition({ symbol: '', quantity: '', name: '' });
         setSearchTerm('');
         await loadAccount();
       } else {
@@ -289,10 +322,15 @@ export default function AccountDetail() {
     return (account ? Number(account.cash_balance) : 0) + calculatePositionsValue();
   };
 
-  const filteredInstruments = instruments.filter(inst =>
+  // Instruments already in Finora first, then live search results not already listed
+  const localMatches: SearchResult[] = instruments.filter(inst =>
     inst.symbol.toLowerCase().includes(searchTerm.toLowerCase()) ||
     inst.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ).slice(0, 5);
+  ).slice(0, 4).map(inst => ({ symbol: inst.symbol, name: inst.name, exchange: 'US', type: inst.instrument_type }));
+  const filteredInstruments = [
+    ...localMatches,
+    ...liveResults.filter(r => !localMatches.some(l => l.symbol === r.symbol)),
+  ].slice(0, 8);
 
   if (loading) {
     return (
@@ -490,7 +528,8 @@ export default function AccountDetail() {
                 </thead>
                 <tbody>
                   {positions.map((position) => (
-                    <tr key={position.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <Fragment key={position.id}>
+                    <tr className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-4 font-medium">{position.symbol}</td>
                       <td className="py-4 px-4 text-right">
                         {editingPosition === position.id ? (
@@ -507,7 +546,7 @@ export default function AccountDetail() {
                         )}
                       </td>
                       <td className="py-4 px-4 text-right">
-                        ${position.current_price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || 'N/A'}
+                        {position.current_price ? `$${Number(position.current_price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
                       </td>
                       <td className="py-4 px-4 text-right font-semibold">
                         ${((position.current_price || 0) * Number(position.quantity)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -542,6 +581,15 @@ export default function AccountDetail() {
                           ) : (
                             <>
                               <button
+                                onClick={() => setResearching(researching === position.id ? null : position.id)}
+                                className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+                                  researching === position.id ? 'bg-ai-accent text-white' : 'text-ai-accent hover:bg-ai-accent/10'
+                                }`}
+                                title="Research: buy, hold or sell, and when to exit"
+                              >
+                                Research
+                              </button>
+                              <button
                                 onClick={() => {
                                   setEditingPosition(position.id);
                                   // Format quantity to remove unnecessary decimal places
@@ -574,6 +622,14 @@ export default function AccountDetail() {
                         </div>
                       </td>
                     </tr>
+                    {researching === position.id && (
+                      <tr className="bg-ai-accent/5 border-b border-gray-100">
+                        <td colSpan={5} className="px-4 py-4">
+                          <PositionResearch symbol={position.symbol} quantity={Number(position.quantity)} />
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
@@ -590,44 +646,51 @@ export default function AccountDetail() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Symbol *
+                    Stock or fund *
                   </label>
                   <div className="relative">
                     <input
                       type="text"
                       value={searchTerm || newPosition.symbol}
                       onChange={(e) => {
-                        const value = e.target.value.toUpperCase();
+                        const value = e.target.value;
                         setSearchTerm(value);
-                        setNewPosition({ ...newPosition, symbol: value });
+                        setNewPosition({ ...newPosition, symbol: value.toUpperCase(), name: '' });
                         setShowSymbolSuggestions(value.length > 0);
                       }}
                       onFocus={() => setShowSymbolSuggestions(searchTerm.length > 0)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary uppercase"
-                      placeholder="Enter ticker symbol (e.g., SPY, AAPL)"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder='Company name or symbol, e.g. "apple" or AAPL'
                     />
 
                     {showSymbolSuggestions && filteredInstruments.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
                         {filteredInstruments.map((inst) => (
                           <button
-                            key={inst.symbol}
+                            key={`${inst.symbol}-${inst.exchange}`}
                             onClick={() => {
-                              setNewPosition({ ...newPosition, symbol: inst.symbol });
+                              setNewPosition({ ...newPosition, symbol: inst.symbol, name: inst.name });
                               setSearchTerm('');
                               setShowSymbolSuggestions(false);
                             }}
-                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                            className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 flex items-center justify-between gap-2"
                           >
-                            <div className="font-medium">{inst.symbol}</div>
-                            <div className="text-xs text-gray-500">{inst.name}</div>
+                            <span className="min-w-0">
+                              <span className="block font-medium">{inst.symbol}</span>
+                              <span className="block text-xs text-gray-500 truncate">{inst.name}</span>
+                            </span>
+                            <span className="text-[10px] uppercase px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 shrink-0">
+                              {inst.exchange} · {inst.type}
+                            </span>
                           </button>
                         ))}
                       </div>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    If the symbol is not in our database, it will be added automatically
+                    {newPosition.name
+                      ? `Selected: ${newPosition.name} (${newPosition.symbol})`
+                      : 'Type a name and pick from the list. New stocks are classified automatically by the Tagger agent.'}
                   </p>
                 </div>
 
@@ -664,7 +727,7 @@ export default function AccountDetail() {
                 <button
                   onClick={() => {
                     setShowAddPosition(false);
-                    setNewPosition({ symbol: '', quantity: '' });
+                    setNewPosition({ symbol: '', quantity: '', name: '' });
                     setSearchTerm('');
                     setShowSymbolSuggestions(false);
                     setMessage(null);

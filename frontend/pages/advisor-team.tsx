@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@clerk/nextjs';
 import Layout from '../components/Layout';
 import { API_URL } from '../lib/config';
+import { parseUtc } from '../lib/dates';
 import { emitAnalysisCompleted, emitAnalysisFailed, emitAnalysisStarted } from '../lib/events';
 import Head from 'next/head';
 
@@ -20,6 +21,38 @@ interface Job {
   created_at: string;
   status: string;
   job_type: string;
+}
+
+interface Snapshot {
+  accounts: number;
+  holdings: { symbol: string; value: number; account: string }[];
+  total: number;
+  yearsToRetire?: number;
+  riskProfile?: string;
+  investorType?: string;
+  fireAge?: number | null;
+}
+
+// Which /analysis tab shows each agent's output
+const AGENT_TAB: Record<string, string> = {
+  'Portfolio Analyst': 'overview',
+  'Chart Specialist': 'charts',
+  'Retirement Planner': 'retirement',
+  'High Growth Scout': 'growth',
+};
+
+// What each agent will look at, using the user's actual data
+function agentFocus(name: string, s: Snapshot | null): string {
+  if (!s) return '';
+  const top = [...s.holdings].sort((a, b) => b.value - a.value).slice(0, 3).map(h => h.symbol).join(', ');
+  switch (name) {
+    case 'Financial Planner': return `Coordinates the team across your ${s.accounts} account${s.accounts === 1 ? '' : 's'}`;
+    case 'Portfolio Analyst': return s.holdings.length ? `Reviews ${s.holdings.length} holdings, led by ${top}` : 'Needs holdings to review';
+    case 'Chart Specialist': return s.holdings.length >= 2 ? `Charts how your ${s.holdings.length} holdings split by asset class, region and sector` : 'Needs at least 2 holdings to chart';
+    case 'Retirement Planner': return s.fireAge ? `Tests your FIRE goal of retiring at ${s.fireAge}` : `Projects ${s.yearsToRetire ?? 20} years to retirement`;
+    case 'High Growth Scout': return `Finds long-term growth ideas for a ${s.riskProfile || 'moderate'} investor`;
+    default: return '';
+  }
 }
 
 interface AnalysisProgress {
@@ -84,11 +117,48 @@ export default function AdvisorTeam() {
     activeAgents: []
   });
   const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
 
   useEffect(() => {
     fetchJobs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // What the agents will work with: accounts, holdings and the FIRE / risk profile
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = await getToken();
+        const headers = { Authorization: `Bearer ${token}` };
+        const [userRes, accRes] = await Promise.all([
+          fetch(`${API_URL}/api/user`, { headers }),
+          fetch(`${API_URL}/api/accounts`, { headers }),
+        ]);
+        const user = userRes.ok ? (await userRes.json()).user : null;
+        const accounts: { id: string; account_name: string }[] = accRes.ok ? await accRes.json() : [];
+        const holdings: Snapshot['holdings'] = [];
+        for (const a of accounts) {
+          const r = await fetch(`${API_URL}/api/accounts/${a.id}/positions`, { headers });
+          if (!r.ok) continue;
+          const data = await r.json();
+          for (const p of data.positions || data || []) {
+            holdings.push({ symbol: p.symbol, value: Number(p.quantity) * Number(p.current_price || p.instrument?.current_price || 0), account: a.account_name });
+          }
+        }
+        setSnapshot({
+          accounts: accounts.length,
+          holdings,
+          total: holdings.reduce((s, h) => s + h.value, 0),
+          yearsToRetire: user?.years_until_retirement,
+          riskProfile: user?.profile?.risk_profile,
+          investorType: user?.profile?.investor_type,
+          fireAge: user?.profile?.fire?.fireAge,
+        });
+      } catch {
+        /* snapshot is a nice-to-have */
+      }
+    })();
+  }, [getToken]);
 
   useEffect(() => {
     const checkJobStatusLocal = async (jobId: string) => {
@@ -243,7 +313,7 @@ export default function AdvisorTeam() {
 
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
+    return parseUtc(dateString).toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -272,7 +342,7 @@ export default function AdvisorTeam() {
   return (
     <>
       <Head>
-        <title>Advisor Team - Alex AI Financial Advisor</title>
+        <title>Advisor Team - Finora</title>
       </Head>
       <Layout>
       <div className="min-h-screen bg-gray-50 py-8">
@@ -284,13 +354,56 @@ export default function AdvisorTeam() {
             </p>
           </div>
 
+          {snapshot && (
+            <div className="bg-white rounded-lg shadow px-8 py-6 mb-8">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-dark">What your team will analyze</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {snapshot.accounts} account{snapshot.accounts === 1 ? '' : 's'} · {snapshot.holdings.length} holdings worth $
+                    {Math.round(snapshot.total).toLocaleString('en-US')}
+                    {snapshot.investorType ? ` · ${snapshot.investorType} (${snapshot.riskProfile})` : ''}
+                  </p>
+                </div>
+                <ul className="text-sm space-y-1">
+                  {[
+                    [snapshot.accounts > 0, 'Accounts added', '/accounts'],
+                    [snapshot.holdings.length > 0, 'Holdings added', '/accounts'],
+                    [!!snapshot.riskProfile, 'FIRE plan & risk profile set', '/dashboard'],
+                  ].map(([ok, text, href]) => (
+                    <li key={text as string} className="flex items-center gap-2">
+                      <span>{ok ? '✅' : '⚪'}</span>
+                      {ok ? <span className="text-gray-700">{text}</span> : (
+                        <button onClick={() => router.push(href as string)} className="text-primary hover:underline">{text as string} →</button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              {snapshot.holdings.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[...snapshot.holdings].sort((a, b) => b.value - a.value).map((h) => (
+                    <span key={`${h.account}-${h.symbol}`} className="px-2.5 py-1 rounded-full bg-gray-100 text-xs text-gray-700" title={h.account}>
+                      {h.symbol} · ${Math.round(h.value).toLocaleString('en-US')}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
             {agents.map((agent) => (
               <div
                 key={agent.name}
+                onClick={() => {
+                  const latest = jobs.find((j) => j.status === 'completed');
+                  if (latest && AGENT_TAB[agent.name]) router.push(`/analysis?job_id=${latest.id}&tab=${AGENT_TAB[agent.name]}`);
+                }}
+                title={AGENT_TAB[agent.name] && jobs.some((j) => j.status === 'completed') ? `Open ${agent.name}'s latest results` : undefined}
                 className={`bg-white rounded-lg shadow-lg p-6 relative overflow-hidden transition-all duration-300 ${
                   isAgentActive(agent.name) ? 'ring-4 ring-ai-accent ring-opacity-50' : ''
-                }`}
+                } ${AGENT_TAB[agent.name] && jobs.some((j) => j.status === 'completed') ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-xl' : ''}`}
               >
                 {isAgentActive(agent.name) && (
                   <div className="absolute inset-0 bg-gradient-to-br from-ai-accent/20 to-transparent animate-strong-pulse" />
@@ -302,6 +415,14 @@ export default function AdvisorTeam() {
                   </h3>
                   <p className="text-sm text-gray-500 mb-3">{agent.role}</p>
                   <p className="text-gray-600 text-sm">{agent.description}</p>
+                  {agentFocus(agent.name, snapshot) && (
+                    <p className="mt-3 text-xs text-gray-500 border-t border-gray-100 pt-2">
+                      <span className="font-medium text-gray-700">For you:</span> {agentFocus(agent.name, snapshot)}
+                    </p>
+                  )}
+                  {AGENT_TAB[agent.name] && jobs.some((j) => j.status === 'completed') && !isAgentActive(agent.name) && (
+                    <p className="mt-2 text-xs text-primary">View latest results →</p>
+                  )}
                   {isAgentActive(agent.name) && (
                     <div className={`mt-4 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-white ${agent.bgColor} animate-strong-pulse`}>
                       <span className="mr-2">●</span>

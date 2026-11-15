@@ -122,6 +122,19 @@ class UserUpdate(BaseModel):
     target_retirement_income: Optional[float] = None
     asset_class_targets: Optional[Dict[str, float]] = None
     region_targets: Optional[Dict[str, float]] = None
+    profile: Optional[Dict[str, Any]] = None  # FIRE inputs + risk assessment from the dashboard
+
+class PositionCreateRequest(PositionCreate):
+    """Position plus the company name picked from symbol search, so new instruments get a real name"""
+    name: Optional[str] = Field(default=None, max_length=255)
+
+class ChatMessage(BaseModel):
+    role: str = Field(pattern="^(user|assistant)$")
+    content: str = Field(max_length=2000)
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage] = Field(min_length=1, max_length=30)
+    context: Optional[Dict[str, Any]] = None  # last stock check the user ran, if any
 
 class AccountUpdate(BaseModel):
     """Update account"""
@@ -351,7 +364,7 @@ async def list_positions(account_id: str, clerk_user_id: str = Depends(get_curre
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/positions")
-async def create_position(position: PositionCreate, clerk_user_id: str = Depends(get_current_user_id)):
+async def create_position(position: PositionCreateRequest, clerk_user_id: str = Depends(get_current_user_id)):
     """Create position"""
 
     try:
@@ -383,7 +396,7 @@ async def create_position(position: PositionCreate, clerk_user_id: str = Depends
             # These can be updated later by the tagger agent
             new_instrument = InstrumentCreate(
                 symbol=symbol_upper,
-                name=f"{symbol_upper} - User Added",  # Basic name, can be updated later
+                name=(position.name or f"{symbol_upper} - User Added")[:255],
                 instrument_type=instrument_type,
                 current_price=Decimal("0.00"),  # Price will be updated by background processes
                 allocation_regions={"north_america": 100.0},  # Default to 100% NA
@@ -392,6 +405,16 @@ async def create_position(position: PositionCreate, clerk_user_id: str = Depends
             )
 
             db.instruments.create_instrument(new_instrument)
+
+            # Replace the placeholder allocations right away instead of waiting for the next analysis
+            try:
+                boto3.client('lambda').invoke(
+                    FunctionName=os.getenv('TAGGER_FUNCTION', 'alex-tagger'),
+                    InvocationType='Event',
+                    Payload=json.dumps({'instruments': [{'symbol': symbol_upper, 'name': new_instrument.name}]}),
+                )
+            except Exception as e:
+                logger.warning(f"Could not start tagger for {symbol_upper}: {e}")
 
         # Add position
         position_id = db.positions.add_position(
@@ -535,6 +558,85 @@ async def trigger_analysis(request: AnalyzeRequest, clerk_user_id: str = Depends
     except Exception as e:
         logger.error(f"Error triggering analysis: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+CHAT_SYSTEM = """You are Finora, the user's AI financial guide inside the Finora portfolio app.
+You can see the user's real portfolio, their FIRE / risk profile, and the latest results from Finora's
+AI agents (portfolio report, retirement projection, high growth picks). Use them: name their actual
+holdings, values and agent findings. If something isn't in the data, say so and suggest running a
+new analysis from the Advisor Team page. Keep answers short (under 200 words), use bullets where useful.
+You give general education, not personal financial advice."""
+
+
+def _agent_text(payload: Optional[Dict], key: str, limit: int) -> str:
+    return str((payload or {}).get(key) or "")[:limit]
+
+
+def portfolio_context(clerk_user_id: str) -> str:
+    """Plain-text snapshot of the user's profile, holdings and latest agent analysis for the chat."""
+    user = db.users.find_by_clerk_id(clerk_user_id) or {}
+    lines = [
+        f"Years until retirement: {user.get('years_until_retirement')}, "
+        f"target retirement income: ${float(user.get('target_retirement_income') or 0):,.0f}",
+        f"FIRE / risk profile: {json.dumps(user.get('profile') or 'not set yet')}",
+        "",
+        "Accounts and holdings:",
+    ]
+    total = 0.0
+    for account in db.accounts.find_by_user(clerk_user_id):
+        cash = float(account.get('cash_balance') or 0)
+        total += cash
+        lines.append(f"- {account['account_name']} (cash ${cash:,.2f})")
+        for p in db.positions.find_by_account(account['id']):
+            inst = db.instruments.find_by_symbol(p['symbol']) or {}
+            price = float(inst.get('current_price') or 0)
+            value = float(p['quantity']) * price
+            total += value
+            lines.append(f"  - {p['symbol']} ({inst.get('name', '')}): {float(p['quantity']):g} units @ ${price:,.2f} = ${value:,.2f}")
+    if len(lines) == 5:
+        lines.append("- No accounts yet")
+    lines.append(f"Total portfolio value: ${total:,.2f}")
+
+    jobs = db.jobs.find_by_user(clerk_user_id, status='completed', limit=1)
+    if jobs:
+        job = jobs[0]
+        lines += [
+            "",
+            f"Latest AI analysis ({str(job.get('created_at'))[:16]}):",
+            "Portfolio report: " + _agent_text(job.get('report_payload'), 'content', 3000),
+            "Retirement projection: " + _agent_text(job.get('retirement_payload'), 'analysis', 1500),
+            "High growth picks: " + _agent_text(job.get('growth_payload'), 'analysis', 2000),
+        ]
+    else:
+        lines += ["", "No AI analysis has been run yet."]
+    return "\n".join(lines)
+
+
+@app.post("/api/chat")
+async def chat(request: ChatRequest, clerk_user_id: str = Depends(get_current_user_id)):
+    """Chat grounded in the signed-in user's portfolio and their latest multi-agent analysis"""
+    turns = [m for m in request.messages if m.content.strip()][-12:]
+    while turns and turns[0].role != 'user':
+        turns.pop(0)
+    if not turns:
+        raise HTTPException(status_code=400, detail="Ask a question first")
+
+    system = CHAT_SYSTEM + "\n\nUSER DATA:\n" + portfolio_context(clerk_user_id)
+    if request.context:
+        system += "\n\nStock check the user just ran:\n" + json.dumps(request.context, default=str)[:3000]
+
+    try:
+        bedrock = boto3.client('bedrock-runtime', region_name=os.getenv('BEDROCK_REGION', 'us-west-2'))
+        resp = bedrock.converse(
+            modelId=os.getenv('BEDROCK_MODEL_ID', 'us.amazon.nova-pro-v1:0'),
+            system=[{'text': system}],
+            messages=[{'role': m.role, 'content': [{'text': m.content}]} for m in turns],
+            inferenceConfig={'maxTokens': 700, 'temperature': 0.4},
+        )
+        return {"reply": resp['output']['message']['content'][0]['text']}
+    except Exception as e:
+        logger.error(f"Chat failed: {e}")
+        raise HTTPException(status_code=502, detail="The assistant is unavailable right now. Please try again.")
+
 
 @app.get("/api/jobs/{job_id}")
 async def get_job_status(job_id: str, clerk_user_id: str = Depends(get_current_user_id)):
