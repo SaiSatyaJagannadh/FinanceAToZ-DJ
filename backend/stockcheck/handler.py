@@ -216,6 +216,8 @@ def check_stock(symbol: str, exchange: str) -> dict:
         data, exchange = fetch_listing(symbol, exchange)
     india = exchange in ("NSE", "BSE")
     yahoo_symbol = data.get("yahooSymbol") or symbol
+    # The engine maps aliases itself (INFOSYS -> INFY.NS); use the real ticker for Screener.in and the UI
+    symbol = yahoo_symbol.split(".")[0].upper()
 
     # Screener.in covers Indian listings, FinViz US ones; news/analysts come from Yahoo for both
     with ThreadPoolExecutor(max_workers=5) as pool:
