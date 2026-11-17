@@ -7,7 +7,7 @@ const features = [
   {
     icon: "🔎",
     title: "Check any stock in seconds",
-    desc: "Type a US or Indian stock. FinFreedom AI pulls live prices and financials, scores five pillars and gives a BUY / HOLD / SELL call with a target price.",
+    desc: "Type a US or Indian stock by name or ticker. FinFreedom AI pulls live prices and financials, scores five pillars and gives a BUY / HOLD / SELL call with a target price.",
     free: true,
   },
   {
@@ -112,7 +112,7 @@ export default function Home() {
             </div>
 
             <div>
-              <p className="mb-3 text-sm font-medium text-white/80">Free stock check: type a symbol and press Check</p>
+              <p className="mb-3 text-sm font-medium text-white/80">Free stock check: type a company name or symbol and press Check</p>
               <Show when="signed-out"><StockCheck gated /></Show>
               <Show when="signed-in"><StockCheck /></Show>
             </div>
