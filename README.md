@@ -1,38 +1,72 @@
-# Alex - the Agentic Learning Equities Explainer
+# FinFreedom AI
 
-## Multi-agent Enterprise-Grade SaaS Financial Planner
+### Multi-agent, enterprise-grade SaaS financial planner on AWS
 
-![Course Image](assets/alex.png)
+![FinFreedom AI system architecture](docs/finfreedom-architecture.png)
 
-_If you're looking at this in Cursor, please right click on the filename in the Explorer on the left, and select "Open preview", to view it in formatted glory._
+FinFreedom AI looks at your US and Indian stock portfolio with a team of AI agents. It writes a portfolio report, draws charts, projects your retirement / FIRE path, and suggests high-growth ideas that match your risk profile. You can also chat with an assistant that knows your holdings, or check any stock by name or ticker without signing in.
 
-### Welcome to The Capstone Project for Week 3 and Week 4!
+It started as **Alex** (Agentic Learning Equities eXplainer), the Week 3–4 capstone of Ed Donner's *AI in Production* course, and was extended well beyond it. AWS resources and code identifiers still use the name `alex`.
 
-#### The directories:
+**Full architecture write-up:** [FINFREEDOM_AI_ARCHITECTURE.md](FINFREEDOM_AI_ARCHITECTURE.md). It covers every component, the analysis flow, how the chat is grounded, and what is stored where.
 
-1. **guides** - this is where you will live - step by step guides to deploy to production
-2. **backend** - the agent code, organized into subdirectories, each a uv project (as is the backend parent directory)
-3. **frontend** - a NextJS React frontend integrated with Clerk
-4. **terraform** - separate terraform subdirectories with state for each part
-5. **scripts** - the final deployment script
+---
 
-#### Order of play:
+## Features
 
-##### Week 3
+| Feature | What it does |
+|---|---|
+| **AI Advisor Team** | One click runs the Planner, which orchestrates 5 agents: **Tagger** (classifies holdings), **Reporter** (portfolio report + market research), **Charter** (allocation charts), **Retirement** (FIRE projection) and **Growth** (high-growth picks for your risk profile) |
+| **Ask FinFreedom AI** | A chat that answers from your real profile, holdings and the latest agent results |
+| **Stock Check** | Score any US or NSE/BSE stock by **company name or ticker** ("Infosys", "Apple", "INFY"), using the FinAI engines: fundamentals, growth, technicals, institutional conviction, risk, moat, projections, analyst ratings and news. Free without an account (3 checks, 5 chat questions) |
+| **Portfolio & FIRE profile** | Accounts, positions (added by name), FIRE calculator and risk assessment |
+| **Research pipeline** | A scheduled Researcher agent browses the web and builds a vector knowledge base that the Reporter uses |
+| **Production practices** | Clerk auth, per-user data isolation, CloudWatch dashboards, LangFuse tracing, LLM-as-judge guardrail |
 
-- On Week 3 Day 3, we will do 1_permissions and 2_sagemaker
-- On Week 3 Day 4, we will do 3_ingest
-- On Week 3 Day 5, we will do 4_researcher
+## Tech stack
 
-##### Week 4
+- **AI:** Amazon Bedrock (Nova Pro), OpenAI Agents SDK + LiteLLM, SageMaker Serverless embeddings, S3 Vectors
+- **Backend:** Python (uv), FastAPI on Lambda (Mangum), 6 agent Lambdas + Researcher, SQS, Aurora PostgreSQL (Data API)
+- **Stock engines:** yfinance, Screener.in, Node.js scoring engines from the FinAI project
+- **Frontend:** Next.js (Pages Router, static export), Tailwind, Clerk, S3 + CloudFront
+- **Infra:** Terraform, one independent folder per part (`terraform/2_sagemaker` … `terraform/9_stockcheck`)
 
-- On Week 4 Day 1, we will do 5_database
-- On Week 4 Day 2, we will do 6_agents
-- On Week 4 Day 3, we will do 7_frontend
-- On Week 4 Day 4, we will do 8_enterprise
+## Repository layout
 
-#### Keep in mind
+| Folder | Contents |
+|---|---|
+| `guides/` | Step-by-step deployment guides 1–8 (start here) |
+| `backend/` | `api`, `planner`, `tagger`, `reporter`, `charter`, `retirement`, `growth`, `researcher`, `ingest`, `stockcheck`, `database`: each is a uv project |
+| `frontend/` | Next.js app |
+| `terraform/` | Infrastructure, one folder per part with its own state and `terraform.tfvars` |
+| `scripts/` | `run_local.py`, `deploy.py`, `destroy.py` |
+| `docs/` | Architecture diagram (PNG + editable SVG) |
 
-- Please submit your community_contributions, including links to your repos, in the production repo community_contributions folder
-- Regularly do a git pull to get the latest code
-- Reach out in Udemy or email (ed@edwarddonner.com) if I can help! This is a gigantic project and I am here to help you deliver it!
+## Run and deploy
+
+All Python runs through **uv** (`uv run …`). Docker Desktop must be running for anything that builds a Lambda image or package.
+
+| Task | Run from | Command |
+|---|---|---|
+| Run frontend (:3000) + API (:8000) locally | `scripts` | `uv run run_local.py` |
+| Deploy website + API (build, S3 upload, CloudFront invalidation) | `scripts` | `uv run deploy.py` |
+| Deploy Stock Check Lambda | `backend/stockcheck` | `uv run deploy.py` |
+| Package + redeploy all agent Lambdas | `backend` | `uv run deploy_all_lambdas.py --package` |
+| Deploy Researcher | `backend/researcher` | `uv run deploy.py` |
+| Test agents locally / deployed | `backend` | `uv run test_simple.py` / `uv run test_full.py` |
+| Database migrations | `backend/database` | `uv run run_migrations.py` |
+
+Configuration comes from the root `.env` (template: `.env.example`), `frontend/.env.local`, and each `terraform/*/terraform.tfvars`.
+
+## Course order of play (original Alex guides)
+
+- **Week 3:** Day 3 `1_permissions`, `2_sagemaker` · Day 4 `3_ingest` · Day 5 `4_researcher`
+- **Week 4:** Day 1 `5_database` · Day 2 `6_agents` · Day 3 `7_frontend` · Day 4 `8_enterprise`
+
+## Cost
+
+Aurora is the main running cost. Destroy what you aren't using (`terraform destroy` per folder; see `CLAUDE.md` for the express-cluster steps) and check the AWS billing console regularly.
+
+---
+
+Built on Ed Donner's *AI in Production* course project (Udemy).
