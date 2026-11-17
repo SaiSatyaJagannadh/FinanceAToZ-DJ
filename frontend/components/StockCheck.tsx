@@ -117,6 +117,40 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
   const [error, setError] = useState("");
   const [result, setResult] = useState<StockResult | null>(null);
   const [limitHit, setLimitHit] = useState(false);
+  const [suggestions, setSuggestions] = useState<{ symbol: string; name: string; exchange: string }[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Live name -> symbol search ("infosys" -> INFY), debounced, limited to the chosen market
+  useEffect(() => {
+    const q = symbol.trim();
+    if (q.length < 2 || !showSuggestions) {
+      setSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${STOCKCHECK_URL}/search`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ query: q }),
+        });
+        if (!res.ok) return;
+        const { results } = await res.json();
+        const wanted = exchange === "IN" ? ["NSE", "BSE"] : ["US"];
+        const seen = new Set<string>();
+        setSuggestions(
+          (results || []).filter((r: { symbol: string; exchange: string }) => {
+            if (!wanted.includes(r.exchange) || seen.has(r.symbol)) return false;
+            seen.add(r.symbol); // NSE and BSE often list the same ticker
+            return true;
+          })
+        );
+      } catch {
+        setSuggestions([]);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [symbol, exchange, showSuggestions]);
 
   // Deep link from the accounts page: /stock-check?symbol=AAPL
   useEffect(() => {
@@ -130,8 +164,9 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
       setLimitHit(true);
       return;
     }
-    setSymbol(sym.toUpperCase());
+    setSymbol(sym.trim());
     setExchange(exch);
+    setShowSuggestions(false);
     setLoading(true);
     setError("");
     try {
@@ -143,6 +178,7 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Check failed");
       setResult(data);
+      setSymbol(data.symbol); // a typed name ("infosys") resolves to its ticker on the server
       try {
         sessionStorage.setItem(LAST_CHECK_KEY, JSON.stringify(summarizeForChat(data)));
         if (gated) localStorage.setItem(COUNT_KEY, String(readCount() + 1));
@@ -169,15 +205,32 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
         }}
         className="flex flex-col sm:flex-row gap-2"
       >
-        <label className="sr-only" htmlFor="stock-symbol">Stock symbol</label>
-        <input
-          id="stock-symbol"
-          value={symbol}
-          onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-          placeholder={exchange === "IN" ? "NSE/BSE symbol, e.g. RELIANCE" : "US symbol, e.g. AAPL"}
-          className="flex-1 min-w-0 px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
-          maxLength={20}
-        />
+        <label className="sr-only" htmlFor="stock-symbol">Stock name or symbol</label>
+        <div className="relative flex-1 min-w-0">
+          <input
+            id="stock-symbol"
+            value={symbol}
+            onChange={(e) => { setSymbol(e.target.value); setShowSuggestions(true); }}
+            onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+            placeholder={exchange === "IN" ? "Name or symbol, e.g. Infosys or INFY" : "Name or symbol, e.g. Apple or AAPL"}
+            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary"
+            maxLength={50}
+            autoComplete="off"
+          />
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="absolute z-20 left-0 right-0 mt-1 max-h-72 overflow-auto bg-white border border-gray-200 rounded-lg shadow-lg">
+              {suggestions.map((s) => (
+                <li key={`${s.symbol}-${s.exchange}`}>
+                  <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => run(s.symbol, exchange)}
+                    className="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center justify-between gap-3">
+                    <span className="truncate">{s.name}</span>
+                    <span className="shrink-0 text-xs font-semibold text-gray-500">{s.symbol} · {s.exchange}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <div className="flex gap-2">
           <div role="group" aria-label="Market" className="flex rounded-lg border border-gray-300 overflow-hidden">
             {[["US", "🇺🇸 US"], ["IN", "🇮🇳 India"]].map(([v, l]) => (
@@ -221,7 +274,7 @@ export default function StockCheck({ gated = false, initialSymbol, initialMarket
 
       {error && !loading && (
         <p className="mt-6 p-3 rounded-lg bg-error/10 text-error text-sm">
-          {error}. Check the symbol and exchange (e.g. RELIANCE on NSE, AAPL on US).
+          {error}. Try the company name or ticker, and check the market (e.g. Reliance on India, Apple on US).
         </p>
       )}
 

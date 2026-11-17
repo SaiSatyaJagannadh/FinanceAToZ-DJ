@@ -192,8 +192,28 @@ def fetch_listing(symbol: str, exchange: str) -> tuple[dict, str]:
     raise LookupError(data.get("error") or f"No data found for {symbol}")
 
 
+def resolve_name(query: str, exchange: str) -> str | None:
+    """Company name -> ticker on the chosen market, e.g. 'infosys' + IN -> INFY."""
+    wanted = ("NSE", "BSE") if exchange == "IN" else (exchange,)
+    matches = [r for r in search(query) if r["exchange"] in wanted]
+    # On India prefer the NSE ticker (Screener.in and NSE symbols line up)
+    matches.sort(key=lambda r: r["exchange"] != "NSE")
+    return matches[0]["symbol"].upper() if matches else None
+
+
 def check_stock(symbol: str, exchange: str) -> dict:
-    data, exchange = fetch_listing(symbol, exchange)
+    # Names ("tata motors") aren't tickers: look the ticker up first, and fall back to
+    # a name search when a single word ("infosys") isn't a listed symbol
+    if " " in symbol:
+        symbol = resolve_name(symbol, exchange) or symbol
+    try:
+        data, exchange = fetch_listing(symbol, exchange)
+    except LookupError:
+        resolved = resolve_name(symbol, exchange)
+        if not resolved or resolved == symbol:
+            raise LookupError(f"No stock found for '{symbol}'. Try the ticker, e.g. INFY or AAPL")
+        symbol = resolved
+        data, exchange = fetch_listing(symbol, exchange)
     india = exchange in ("NSE", "BSE")
     yahoo_symbol = data.get("yahooSymbol") or symbol
 
@@ -325,8 +345,8 @@ def lambda_handler(event, context):
         if path.endswith("/check"):
             symbol = str(body.get("symbol", "")).strip().upper()
             exchange = str(body.get("exchange", "US")).strip().upper()
-            if not symbol or len(symbol) > 20 or exchange not in ("IN", "NSE", "BSE", "US"):
-                return respond(400, {"error": "Enter a stock symbol and pick US or India"})
+            if not symbol or len(symbol) > 50 or exchange not in ("IN", "NSE", "BSE", "US"):
+                return respond(400, {"error": "Enter a stock name or symbol and pick US or India"})
             return respond(200, check_stock(symbol, exchange))
         if path.endswith("/search"):
             query = str(body.get("query", "")).strip()
