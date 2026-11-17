@@ -1,0 +1,255 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="1230" viewBox="0 0 2000 1230" font-family="Inter, 'Segoe UI', Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="m-gray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#6b7280"/></marker>
+    <marker id="m-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#2563eb"/></marker>
+    <marker id="m-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#7c3aed"/></marker>
+    <marker id="m-green" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#059669"/></marker>
+    <marker id="m-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#ea580c"/></marker>
+    <marker id="m-teal" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#0891b2"/></marker>
+    <style>
+      .zone{fill:#f8fafc;stroke:#cbd5e1;stroke-width:1.5}
+      .zl{font-size:15px;font-weight:700;fill:#475569;letter-spacing:.04em}
+      .zs{font-size:12px;fill:#94a3b8}
+      .box{fill:#fff;stroke:#94a3b8;stroke-width:1.5}
+      .t{font-size:17px;font-weight:700;fill:#0f172a}
+      .s{font-size:13px;fill:#475569}
+      .m{font-size:12.5px;fill:#334155;font-family:'JetBrains Mono',Menlo,Consolas,monospace}
+      .a{font-size:11.5px;fill:#475569}
+      .lbl{font-size:12px;font-weight:600}
+      .w{fill:none;stroke-width:2.6;stroke-linejoin:round}
+    </style>
+  </defs>
+  <rect width="2000" height="1230" fill="#ffffff"/>
+
+  <!-- Title -->
+  <text x="30" y="52" font-size="30" font-weight="800" fill="#0f172a">FinFreedom AI: System Architecture</text>
+  <text x="30" y="82" font-size="15" fill="#64748b">How the web app, API, AI agents, chat, stock check and research pipeline connect on AWS</text>
+
+  <!-- ZONES -->
+  <rect class="zone" x="30" y="110" width="240" height="560" rx="14"/>
+  <text class="zl" x="48" y="138">USER</text>
+  <rect class="zone" x="300" y="110" width="290" height="560" rx="14"/>
+  <text class="zl" x="318" y="138">EDGE</text><text class="zs" x="370" y="138">terraform/7_frontend</text>
+  <rect class="zone" x="620" y="110" width="320" height="560" rx="14"/>
+  <text class="zl" x="638" y="138">APPLICATION</text><text class="zs" x="752" y="138">Lambda</text>
+  <rect class="zone" x="980" y="110" width="300" height="450" rx="14"/>
+  <text class="zl" x="998" y="138">DATA &amp; MEMORY</text><text class="zs" x="1146" y="138">5_database · 6_agents</text>
+  <rect class="zone" x="1310" y="110" width="660" height="450" rx="14" style="fill:#faf5ff;stroke:#d8b4fe"/>
+  <text class="zl" x="1328" y="138" style="fill:#6d28d9">AI AGENT ORCHESTRA</text><text class="zs" x="1522" y="138">terraform/6_agents · OpenAI Agents SDK + LiteLLM</text>
+  <rect class="zone" x="300" y="710" width="1670" height="190" rx="14" style="fill:#ecfeff;stroke:#a5f3fc"/>
+  <text class="zl" x="318" y="738" style="fill:#0e7490">RESEARCH KNOWLEDGE PIPELINE</text><text class="zs" x="602" y="738">terraform/2_sagemaker · 3_ingestion · 4_researcher</text>
+
+  <!-- USER -->
+  <rect class="box" x="50" y="160" width="190" height="120" rx="10"/>
+  <text class="t" x="66" y="190">Browser</text>
+  <text class="s" x="66" y="214">FinFreedom AI web app</text>
+  <text class="a" x="66" y="236">Dashboard · Accounts ·</text>
+  <text class="a" x="66" y="254">Advisor Team · Analysis ·</text>
+  <text class="a" x="66" y="272">Stock Check · Chat bubble</text>
+  <rect class="box" x="50" y="330" width="190" height="90" rx="10"/>
+  <text class="t" x="66" y="360">Clerk</text>
+  <text class="s" x="66" y="383">Sign-in / sign-up</text>
+  <text class="s" x="66" y="403">issues JWT for /api/*</text>
+  <rect class="box" x="50" y="460" width="190" height="180" rx="10" style="stroke-dasharray:5 4"/>
+  <text class="t" x="66" y="490">In your browser</text>
+  <text class="a" x="66" y="516">• chat history (last 12 turns</text>
+  <text class="a" x="66" y="534">   sent with each message)</text>
+  <text class="a" x="66" y="558">• last stock check</text>
+  <text class="a" x="66" y="576">   (sessionStorage → chat)</text>
+  <text class="a" x="66" y="600">• free-use counters</text>
+  <text class="a" x="66" y="618">   3 checks · 5 questions</text>
+
+  <!-- EDGE -->
+  <rect class="box" x="320" y="160" width="250" height="80" rx="10"/>
+  <text class="t" x="336" y="190">CloudFront CDN</text>
+  <text class="s" x="336" y="214">/ → S3 site · /api/* → API GW</text>
+  <rect class="box" x="320" y="300" width="115" height="110" rx="10"/>
+  <text class="t" x="332" y="328">S3 site</text>
+  <text class="a" x="332" y="352">Next.js static</text>
+  <text class="a" x="332" y="370">export (Pages</text>
+  <text class="a" x="332" y="388">Router)</text>
+  <rect class="box" x="455" y="300" width="115" height="110" rx="10"/>
+  <text class="t" x="467" y="328">API</text>
+  <text class="t" x="467" y="348">Gateway</text>
+  <text class="a" x="467" y="372">HTTP API</text>
+  <text class="a" x="467" y="390">/api/* routes</text>
+
+  <!-- APPLICATION -->
+  <rect class="box" x="640" y="160" width="280" height="260" rx="10" style="stroke:#2563eb"/>
+  <text class="t" x="656" y="190">API Lambda</text>
+  <text class="s" x="656" y="212">FastAPI + Mangum · checks Clerk JWT</text>
+  <text class="m" x="656" y="244">/api/user      profile</text>
+  <text class="m" x="656" y="268">/api/accounts  /positions</text>
+  <text class="m" x="656" y="292">/api/analyze   → SQS</text>
+  <text class="m" x="656" y="316">/api/jobs/{id} polled</text>
+  <text class="m" x="656" y="340">/api/chat      → Bedrock</text>
+  <text class="a" x="656" y="372">chat context = profile + holdings</text>
+  <text class="a" x="656" y="390">+ latest agent results, read fresh</text>
+  <text class="a" x="656" y="408">from Aurora on every message</text>
+
+  <rect class="box" x="640" y="450" width="280" height="210" rx="10" style="stroke:#ea580c"/>
+  <text class="t" x="656" y="480">Stock Check Lambda</text>
+  <text class="s" x="656" y="502">public function URL · no login</text>
+  <text class="s" x="656" y="518">terraform/9_stockcheck</text>
+  <text class="m" x="656" y="548">/search  name → ticker</text>
+  <text class="m" x="656" y="572">/check   FinAI scoring</text>
+  <text class="m" x="656" y="596">/chat    free questions</text>
+  <text class="a" x="656" y="624">5 Node engines → BUY / HOLD / SELL</text>
+  <text class="a" x="656" y="644">data: Yahoo Finance · Screener.in</text>
+
+  <!-- DATA -->
+  <rect class="box" x="1000" y="160" width="260" height="280" rx="10" style="stroke:#0f172a"/>
+  <text class="t" x="1016" y="190">Aurora PostgreSQL</text>
+  <text class="s" x="1016" y="212">RDS Data API · the app's memory</text>
+  <text class="m" x="1016" y="246">users</text><text class="a" x="1080" y="246">profile: FIRE + risk</text>
+  <text class="m" x="1016" y="272">accounts</text><text class="a" x="1104" y="272">cash</text>
+  <text class="m" x="1016" y="298">positions</text><text class="a" x="1112" y="298">holdings</text>
+  <text class="m" x="1016" y="324">instruments</text><text class="a" x="1128" y="324">tags · prices</text>
+  <text class="m" x="1016" y="350">jobs</text><text class="a" x="1060" y="350">one row per analysis,</text>
+  <text class="a" x="1016" y="370">one column per agent:</text>
+  <text class="a" x="1016" y="390">report · charts · retirement ·</text>
+  <text class="a" x="1016" y="408">growth · summary</text>
+  <text class="a" x="1016" y="428">status: pending → running → completed</text>
+
+  <rect class="box" x="1000" y="470" width="260" height="70" rx="10"/>
+  <text class="t" x="1016" y="500">SQS queue</text>
+  <text class="s" x="1016" y="522">message = job_id</text>
+
+  <!-- AGENTS -->
+  <rect class="box" x="1330" y="160" width="630" height="100" rx="10" style="stroke:#7c3aed"/>
+  <text class="t" x="1346" y="190">Planner (orchestrator)</text>
+  <text class="a" x="1346" y="214">1. Tagger fills missing stock data    2. refresh prices (Polygon)    3. load portfolio summary</text>
+  <text class="a" x="1346" y="234">4. Planner agent calls the specialists with only the job_id    5. mark job completed</text>
+  <text class="a" x="1346" y="252" style="fill:#7c3aed">agents never pass data to each other: each reads Aurora and writes its own column</text>
+
+  <g>
+    <rect class="box" x="1330" y="300" width="118" height="130" rx="10"/>
+    <text class="t" x="1342" y="328">Tagger</text>
+    <text class="a" x="1342" y="352">classifies stocks</text>
+    <text class="a" x="1342" y="370">region · sector ·</text>
+    <text class="a" x="1342" y="388">asset class</text>
+    <text class="a" x="1342" y="416" style="fill:#7c3aed">→ instruments</text>
+
+    <rect class="box" x="1458" y="300" width="118" height="130" rx="10"/>
+    <text class="t" x="1470" y="328">Reporter</text>
+    <text class="a" x="1470" y="352">portfolio report</text>
+    <text class="a" x="1470" y="370">+ research search</text>
+    <text class="a" x="1470" y="388">+ judge guardrail</text>
+    <text class="a" x="1470" y="416" style="fill:#7c3aed">→ jobs.report</text>
+
+    <rect class="box" x="1586" y="300" width="118" height="130" rx="10"/>
+    <text class="t" x="1598" y="328">Charter</text>
+    <text class="a" x="1598" y="352">chart JSON</text>
+    <text class="a" x="1598" y="370">allocations,</text>
+    <text class="a" x="1598" y="388">sectors, regions</text>
+    <text class="a" x="1598" y="416" style="fill:#7c3aed">→ jobs.charts</text>
+
+    <rect class="box" x="1714" y="300" width="118" height="130" rx="10"/>
+    <text class="t" x="1726" y="328">Retirement</text>
+    <text class="a" x="1726" y="352">FIRE projection</text>
+    <text class="a" x="1726" y="370">vs income goal</text>
+    <text class="a" x="1726" y="388">&amp; years left</text>
+    <text class="a" x="1726" y="416" style="fill:#7c3aed">→ jobs.retirement</text>
+
+    <rect class="box" x="1842" y="300" width="118" height="130" rx="10"/>
+    <text class="t" x="1854" y="328">Growth</text>
+    <text class="a" x="1854" y="352">high-growth picks</text>
+    <text class="a" x="1854" y="370">matched to your</text>
+    <text class="a" x="1854" y="388">risk profile</text>
+    <text class="a" x="1854" y="416" style="fill:#7c3aed">→ jobs.growth</text>
+  </g>
+  <text class="a" x="1340" y="545" style="fill:#6d28d9">Each agent = its own Lambda: lambda_handler.py · agent.py · templates.py</text>
+
+  <!-- BEDROCK -->
+  <rect x="980" y="590" width="500" height="80" rx="12" fill="#fefce8" stroke="#ca8a04" stroke-width="1.8"/>
+  <text class="t" x="998" y="620">Amazon Bedrock · Nova Pro</text>
+  <text class="a" x="998" y="642">the LLM behind every agent, the portfolio chat and the stock chat</text>
+  <text class="a" x="998" y="660">(agents via LiteLLM; chats via the converse API)</text>
+
+  <!-- RESEARCH -->
+  <rect class="box" x="330" y="760" width="200" height="110" rx="10"/>
+  <text class="t" x="346" y="790">EventBridge</text>
+  <text class="s" x="346" y="812">schedule</text>
+  <text class="a" x="346" y="834">triggers research</text>
+  <text class="a" x="346" y="852">automatically</text>
+  <rect class="box" x="580" y="760" width="300" height="110" rx="10"/>
+  <text class="t" x="596" y="790">Researcher agent</text>
+  <text class="s" x="596" y="812">Lambda container + function URL</text>
+  <text class="a" x="596" y="834">browses the web (Playwright MCP),</text>
+  <text class="a" x="596" y="852">writes a market analysis</text>
+  <rect class="box" x="930" y="760" width="260" height="110" rx="10"/>
+  <text class="t" x="946" y="790">Ingest Lambda</text>
+  <text class="s" x="946" y="812">API Gateway + API key</text>
+  <text class="a" x="946" y="834">turns a document into a</text>
+  <text class="a" x="946" y="852">vector and stores it</text>
+  <rect class="box" x="1240" y="760" width="230" height="110" rx="10"/>
+  <text class="t" x="1256" y="790">SageMaker</text>
+  <text class="s" x="1256" y="812">Serverless endpoint</text>
+  <text class="a" x="1256" y="834">all-MiniLM-L6-v2</text>
+  <text class="a" x="1256" y="852">text → embedding</text>
+  <rect class="box" x="1520" y="760" width="420" height="110" rx="10" style="stroke:#0891b2"/>
+  <text class="t" x="1536" y="790">S3 Vectors</text>
+  <text class="s" x="1536" y="812">market-research knowledge base</text>
+  <text class="a" x="1536" y="834">grows with every research run;</text>
+  <text class="a" x="1536" y="852">the Reporter searches it for each report</text>
+
+  <!-- ===== ARROWS ===== -->
+  <!-- gray: browse -->
+  <path class="w" stroke="#6b7280" d="M240,200 H318" marker-end="url(#m-gray)"/>
+  <path class="w" stroke="#6b7280" d="M378,240 V298" marker-end="url(#m-gray)"/>
+  <!-- blue: API -->
+  <path class="w" stroke="#2563eb" stroke-dasharray="6 4" d="M145,282 V328" marker-start="url(#m-blue)" marker-end="url(#m-blue)"/>
+  <path class="w" stroke="#2563eb" d="M512,240 V298" marker-end="url(#m-blue)"/>
+  <path class="w" stroke="#2563eb" d="M570,355 H638" marker-end="url(#m-blue)"/>
+  <path class="w" stroke="#2563eb" d="M922,230 H998" marker-start="url(#m-blue)" marker-end="url(#m-blue)"/>
+  <!-- purple: analysis -->
+  <path class="w" stroke="#7c3aed" d="M920,292 H970 V505 H998" marker-end="url(#m-purple)"/>
+  <path class="w" stroke="#7c3aed" d="M1260,505 H1300 V210 H1328" marker-end="url(#m-purple)"/>
+  <path class="w" stroke="#7c3aed" d="M1389,260 V298 M1517,260 V298 M1645,260 V298 M1773,260 V298 M1901,260 V298"/>
+  <path class="w" stroke="#7c3aed" stroke-dasharray="7 5" d="M1389,430 V465 M1517,430 V465 M1645,430 V465 M1773,430 V465 M1901,430 V465 M1901,465 H1285 V330 H1262" marker-end="url(#m-purple)"/>
+  <text class="lbl" x="1680" y="485" fill="#7c3aed">each agent writes its result → Aurora</text>
+  <!-- LLM calls -->
+  <path class="w" stroke="#ca8a04" stroke-dasharray="3 4" d="M1400,560 V588" marker-end="url(#m-gray)"/>
+  <!-- green: chat -->
+  <path class="w" stroke="#059669" d="M920,340 H945 V612 H978" marker-end="url(#m-green)"/>
+  <!-- orange: stock check -->
+  <path class="w" stroke="#ea580c" d="M240,250 H285 V555 H638" marker-end="url(#m-orange)"/>
+  <text class="lbl" x="308" y="545" fill="#ea580c">function URL (skips CloudFront)</text>
+  <path class="w" stroke="#ea580c" d="M920,645 H978" marker-end="url(#m-orange)"/>
+  <!-- teal: research -->
+  <path class="w" stroke="#0891b2" d="M530,815 H578" marker-end="url(#m-teal)"/>
+  <path class="w" stroke="#0891b2" d="M880,815 H928" marker-end="url(#m-teal)"/>
+  <path class="w" stroke="#0891b2" d="M1190,815 H1238" marker-end="url(#m-teal)"/>
+  <path class="w" stroke="#0891b2" d="M1470,815 H1518" marker-end="url(#m-teal)"/>
+  <path class="w" stroke="#0891b2" stroke-dasharray="7 5" d="M1545,430 V758" marker-end="url(#m-teal)"/>
+  <text class="lbl" x="1553" y="700" fill="#0891b2">Reporter: get_market_insights</text>
+
+  <!-- ===== LEGEND + MEMORY ===== -->
+  <rect x="30" y="930" width="900" height="270" rx="14" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text class="zl" x="50" y="962">FLOWS</text>
+  <g font-size="14" fill="#1e293b">
+    <line x1="50" y1="992" x2="100" y2="992" stroke="#6b7280" stroke-width="3"/><text x="115" y="997">Open the website: CloudFront serves the static Next.js app from S3</text>
+    <line x1="50" y1="1024" x2="100" y2="1024" stroke="#2563eb" stroke-width="3"/><text x="115" y="1029">Signed-in API calls: Clerk JWT → API Gateway → API Lambda ↔ Aurora</text>
+    <line x1="50" y1="1056" x2="100" y2="1056" stroke="#7c3aed" stroke-width="3"/><text x="115" y="1061">AI analysis: /api/analyze → SQS → Planner → 5 agents → results in jobs row</text>
+    <line x1="50" y1="1088" x2="100" y2="1088" stroke="#059669" stroke-width="3"/><text x="115" y="1093">Ask AI chat: answers grounded in your profile, holdings and agent results</text>
+    <line x1="50" y1="1120" x2="100" y2="1120" stroke="#ea580c" stroke-width="3"/><text x="115" y="1125">Public stock check &amp; chat: type a name or ticker, no login needed</text>
+    <line x1="50" y1="1152" x2="100" y2="1152" stroke="#0891b2" stroke-width="3"/><text x="115" y="1157">Research: web → Researcher → Ingest → embeddings → S3 Vectors → Reporter</text>
+    <text x="50" y="1188" font-size="12.5" fill="#64748b">Observability: CloudWatch dashboards (8_enterprise) · LangFuse traces · LLM-as-judge guardrail on reports</text>
+  </g>
+
+  <rect x="960" y="930" width="1010" height="270" rx="14" fill="#f0fdf4" stroke="#86efac"/>
+  <text class="zl" x="980" y="962" style="fill:#15803d">HOW MEMORY UPDATES EACH TIME YOU USE IT</text>
+  <g font-size="14" fill="#1e293b">
+    <circle cx="992" cy="992" r="12" fill="#15803d"/><text x="987" y="997" fill="#fff" font-weight="700" font-size="13">1</text>
+    <text x="1015" y="997">Save your FIRE / risk profile or add holdings → users, accounts, positions in Aurora</text>
+    <circle cx="992" cy="1027" r="12" fill="#15803d"/><text x="987" y="1032" fill="#fff" font-weight="700" font-size="13">2</text>
+    <text x="1015" y="1032">New symbol → Tagger classifies it; every analysis → Planner refreshes prices (instruments)</text>
+    <circle cx="992" cy="1062" r="12" fill="#15803d"/><text x="987" y="1067" fill="#fff" font-weight="700" font-size="13">3</text>
+    <text x="1015" y="1067">Run an analysis → a NEW jobs row; each agent fills its own column (old jobs kept as history)</text>
+    <circle cx="992" cy="1097" r="12" fill="#15803d"/><text x="987" y="1102" fill="#fff" font-weight="700" font-size="13">4</text>
+    <text x="1015" y="1102">Every chat message re-reads profile + holdings + the latest completed job from Aurora</text>
+    <circle cx="992" cy="1132" r="12" fill="#15803d"/><text x="987" y="1137" fill="#fff" font-weight="700" font-size="13">5</text>
+    <text x="1015" y="1137">Each research run adds documents to S3 Vectors, so future reports get richer</text>
+    <text x="980" y="1180" font-size="13" fill="#166534">Loop: change your data → run analysis → agents write a new job → chat now knows the newest results</text>
+  </g>
+</svg>

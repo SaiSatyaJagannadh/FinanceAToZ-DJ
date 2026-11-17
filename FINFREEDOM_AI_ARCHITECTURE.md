@@ -4,6 +4,10 @@ This document explains how FinFreedom AI is built and how its pieces connect: th
 
 FinFreedom AI started as **Alex**, the capstone project of Ed Donner's "AI in Production" course, and was extended beyond the course. The UI says **FinFreedom AI**. AWS resources, packages and code still use the name `alex`.
 
+![FinFreedom AI system architecture](docs/finfreedom-architecture.png)
+
+*One-page view of the whole system. Source: `docs/finfreedom-architecture.svg` (edit it, then re-render the PNG).*
+
 ---
 
 ## 1. The big picture
