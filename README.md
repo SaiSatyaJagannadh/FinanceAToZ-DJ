@@ -2,6 +2,30 @@
 
 ### Multi-agent, enterprise-grade SaaS financial planner on AWS
 
+**🌐 Live app: [https://d1n70aw5kbc7vt.cloudfront.net](https://d1n70aw5kbc7vt.cloudfront.net)**
+
+Works on desktop and phones. No install needed.
+
+## Try it in 2 minutes
+
+1. **Open the [live app](https://d1n70aw5kbc7vt.cloudfront.net)** and type a stock name or ticker into the free stock check, e.g. `Apple`, `NVDA`, `Infosys` (pick 🇮🇳 India for NSE/BSE). You get a five-pillar score and a BUY / HOLD / SELL call. No account needed: 3 free checks.
+2. **Tap "Ask FinFreedom AI"** (bottom right) to have the chat explain the result. 5 free questions.
+3. **Sign up free** (email or Google) to unlock everything below.
+4. **Accounts →** add your real accounts with one click from the suggested types (see [Account types](#account-types)), then add holdings by company name.
+5. **Dashboard →** fill in the FIRE calculator and risk profile.
+6. **Advisor Team → Run analysis.** Six AI agents work in parallel and return a report, charts, a retirement projection and growth picks in about a minute. Open **Analysis** to read them, or ask the chat about them.
+
+| Page | Link |
+|---|---|
+| Home + free stock check | [/](https://d1n70aw5kbc7vt.cloudfront.net/) |
+| Stock Check (full research) | [/stock-check](https://d1n70aw5kbc7vt.cloudfront.net/stock-check/) |
+| Dashboard (FIRE + risk profile) | [/dashboard](https://d1n70aw5kbc7vt.cloudfront.net/dashboard/) *(sign in)* |
+| Accounts | [/accounts](https://d1n70aw5kbc7vt.cloudfront.net/accounts/) *(sign in)* |
+| Advisor Team | [/advisor-team](https://d1n70aw5kbc7vt.cloudfront.net/advisor-team/) *(sign in)* |
+| Analysis results | [/analysis](https://d1n70aw5kbc7vt.cloudfront.net/analysis/) *(sign in)* |
+
+> FinFreedom AI is for learning and information only. Its AI-generated output has not been vetted by a licensed financial advisor and is not investment advice.
+
 ![FinFreedom AI system architecture](docs/finfreedom-architecture.png)
 
 FinFreedom AI looks at your US and Indian stock portfolio with a team of AI agents. It writes a portfolio report, draws charts, projects your retirement / FIRE path, and suggests high-growth ideas that match your risk profile. You can also chat with an assistant that knows your holdings, or check any stock by name or ticker without signing in.
@@ -22,6 +46,39 @@ It started as **Alex** (Agentic Learning Equities eXplainer), the Week 3–4 cap
 | **Portfolio & FIRE profile** | Accounts, positions (added by name), FIRE calculator and risk assessment |
 | **Research pipeline** | A scheduled Researcher agent browses the web and builds a vector knowledge base that the Reporter uses |
 | **Production practices** | Clerk auth, per-user data isolation, CloudWatch dashboards, LangFuse tracing, LLM-as-judge guardrail |
+| **Mobile-friendly UI** | Five-tab phone nav, tables that hide secondary columns, stacked headers, scrollable modals, no iOS input zoom |
+
+## Account types
+
+The Accounts page suggests these as one-click buttons: on the empty state, as a "Suggested accounts to add" strip for types you don't have yet, and as quick picks in the Add Account form. You can also type any custom name.
+
+| Region | Account | Used for |
+|---|---|---|
+| 🇺🇸 US | 401(k) | Employer retirement account |
+| 🇺🇸 US | Roth IRA | Tax-free retirement savings |
+| 🇺🇸 US | Traditional IRA | Tax-deferred retirement savings |
+| 🇺🇸 US | HSA | Health Savings Account (triple tax advantage) |
+| 🇺🇸 US | 529 Plan | Education savings |
+| Any | Taxable Brokerage | Long-term investing |
+| Any | Emergency Fund | High-yield savings, 3–6 months of expenses |
+| 🇮🇳 India | Demat | Indian stocks and ETFs |
+| 🇮🇳 India | Mutual Funds / SIP | Monthly SIP investing |
+| 🇮🇳 India | EPF | Employee Provident Fund (retirement) |
+| 🇮🇳 India | PPF | Public Provident Fund (15-year, tax-free) |
+| 🇮🇳 India | NPS | National Pension System (retirement) |
+
+## What's deployed (AWS us-east-1)
+
+| Part | AWS resources | Terraform folder |
+|---|---|---|
+| Embeddings | SageMaker Serverless endpoint `alex-embedding-endpoint` | `terraform/2_sagemaker` |
+| Knowledge base | S3 Vectors + `alex-ingest` Lambda + API Gateway | `terraform/3_ingestion` |
+| Researcher | `alex-researcher` Lambda (container) with a function URL (EventBridge schedule optional, not enabled) | `terraform/4_researcher` |
+| Database | Aurora PostgreSQL express cluster `alex-aurora-cluster` (Data API) | `terraform/5_database` |
+| Agents | `alex-planner`, `-tagger`, `-reporter`, `-charter`, `-retirement`, `-growth` Lambdas + SQS queue and dead-letter queue | `terraform/6_agents` |
+| Website + API | S3 + CloudFront (live link above), `alex-api` Lambda (FastAPI) behind API Gateway | `terraform/7_frontend` |
+| Stock check + public chat | `alex-stockcheck` Lambda (container) with a public function URL | `terraform/9_stockcheck` |
+| Monitoring (optional) | CloudWatch dashboards and alarms (not applied yet) | `terraform/8_enterprise` |
 
 ## Tech stack
 
