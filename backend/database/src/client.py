@@ -6,6 +6,7 @@ Provides a simple interface for database operations
 import boto3
 import json
 import os
+import time
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import date, datetime
 from decimal import Decimal
@@ -78,8 +79,16 @@ class DataAPIClient:
             if parameters:
                 kwargs["parameters"] = parameters
 
-            response = self.client.execute_statement(**kwargs)
-            return response
+            # Aurora auto-pauses when idle (min capacity 0). The first call after a pause
+            # gets DatabaseResumingException while it wakes (~15s), so wait and retry.
+            for attempt in range(8):
+                try:
+                    return self.client.execute_statement(**kwargs)
+                except ClientError as e:
+                    if e.response["Error"]["Code"] != "DatabaseResumingException" or attempt == 7:
+                        raise
+                    logger.info("Aurora is resuming from pause, retrying in 3s")
+                    time.sleep(3)
 
         except ClientError as e:
             logger.error(f"Database error: {e}")

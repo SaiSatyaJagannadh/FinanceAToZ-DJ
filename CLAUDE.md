@@ -547,6 +547,8 @@ The most common issues relate to AWS region choices! Check environment variables
 - Aurora must be an **express** cluster (no VPC, IAM-token login only, backup retention ≤ 1). Terraform can't create one, so `terraform/5_database/main.tf` only *looks up* `alex-aurora-cluster` (`data "aws_rds_cluster"`) and still manages the secret and Lambda IAM role. The cluster is created with `aws rds create-db-cluster --with-express-configuration`, then `backend/database/setup_express_db.py` creates the `alexadmin` password user (for the Data API) and the `alex` database. Full steps: `notes/knowledge-article.md` §7.
 - `terraform destroy` in `5_database` does **not** delete the cluster; use `aws rds delete-db-instance` then `aws rds delete-db-cluster --skip-final-snapshot`.
 - Paid-plan course version of `main.tf`: `git show fbab9eb:terraform/5_database/main.tf`.
+- **Aurora auto-pauses** (`MinCapacity=0`, `SecondsUntilAutoPause=300`, set with `aws rds modify-db-cluster`, not Terraform). The first Data API call after a pause raises `DatabaseResumingException`; `DataAPIClient.execute` in `backend/database/src/client.py` retries it for up to about 24s (check: `uv run test_resume_retry.py`). A change to that client only reaches AWS after repackaging every Lambda that bundles `../database` (`uv run deploy_all_lambdas.py --package`, then `scripts/deploy.py` for the API).
+- No WAF is in use. The old twin project's CloudFront WAF was detached 2026-11-22.
 - Change IAM policies only via the console, with the user (`AlexRDSCustomPolicy` needs `rds:Enable*` and `rds-db:connect`).
 
 ---

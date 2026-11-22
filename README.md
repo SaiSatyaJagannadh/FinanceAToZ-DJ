@@ -122,7 +122,16 @@ Configuration comes from the root `.env` (template: `.env.example`), `frontend/.
 
 ## Cost
 
-Aurora is the main running cost. Destroy what you aren't using (`terraform destroy` per folder; see `CLAUDE.md` for the express-cluster steps) and check the AWS billing console regularly.
+Aurora **auto-pauses** after 5 idle minutes (Serverless v2 `MinCapacity=0`, `SecondsUntilAutoPause=300`), so an idle app costs almost nothing. That's about $1–5/month instead of about $44/month at the old 0.5 ACU minimum. The first request after a pause waits about 15 seconds while Aurora resumes. `backend/database/src/client.py` retries `DatabaseResumingException`, so users see a slow first load, not an error. No WAF is used. Everything else (Lambda, SageMaker Serverless, S3, CloudFront) is pay-per-use.
+
+To change the pause setting:
+
+```bash
+aws rds modify-db-cluster --db-cluster-identifier alex-aurora-cluster --apply-immediately \
+  --serverless-v2-scaling-configuration MinCapacity=0,MaxCapacity=1,SecondsUntilAutoPause=300
+```
+
+Destroy what you aren't using (`terraform destroy` per folder; see `CLAUDE.md` for the express-cluster steps) and check the AWS billing console regularly.
 
 ---
 
