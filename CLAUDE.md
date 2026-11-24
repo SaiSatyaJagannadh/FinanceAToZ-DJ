@@ -37,6 +37,14 @@ By completing this project, students will:
 
 Alex is a SaaS product that provides insights on users' equity portfolios through reports and charts. Alex is integrated with Clerk for user management and the database architecture keeps user data separate.
 
+**Live links (this repo, us-east-1):**
+- **App:** https://d1n70aw5kbc7vt.cloudfront.net (CloudFront `E2AFYLZD6MBFDK`)
+- **API Gateway:** https://zkx19875fd.execute-api.us-east-1.amazonaws.com
+- **LangFuse:** https://us.cloud.langfuse.com
+- **GitHub:** https://github.com/SaiSatyaJagannadh/FinanceAToZ-DJ
+
+Guides 1–7 are deployed, plus `9_stockcheck`. Guide 8 has LangFuse only.
+
 ---
 
 ## Directory Structure
@@ -329,6 +337,13 @@ The full end-to-end explanation (diagrams, every agent, chat grounding, what is 
   - **Frontend export uses `trailingSlash: true`** (`dashboard/index.html`). Without it, the S3 website endpoint 404s on `/dashboard`, CloudFront's error page serves the landing page, and the post-login redirect appears broken. That same error mapping turns API 4xx responses through CloudFront into a 200 HTML page.
   - **Job timestamps** from Aurora are UTC with no zone. Parse them with `frontend/lib/dates.ts` `parseUtc`.
 - **Reporter guardrail:** `backend/reporter/judge.py` runs an LLM-as-judge on the report. If the score is below `GUARD_AGAINST_SCORE` (0.3, defined in `reporter/lambda_handler.py`), the report is replaced with an apology. The judge runs **only when LangFuse is configured** (`observability.py`, enabled by `LANGFUSE_SECRET_KEY`).
+- **LangFuse is live (Guide 8, observability done 2026-11-22):**
+  - **Keys:** `langfuse_public_key`, `langfuse_secret_key`, `langfuse_host` (`https://us.cloud.langfuse.com`) and `openai_api_key` are set in `terraform/6_agents/terraform.tfvars` (gitignored) and reach all 6 agents as env vars. Traces are at https://us.cloud.langfuse.com → Tracing → Traces.
+  - **Healthy logs:** CloudWatch shows `LangFuse authentication check passed` and `Traces flushed successfully`.
+  - **tfvars syntax:** every line needs `=`. `langfuse_host"…"` gives Terraform `Invalid block definition`, and then `deploy_all_lambdas.py` fails at the taint step.
+  - **Known warning:** uploading the judge score logs `Failed to process score event … 'ProxyTracerProvider' object has no attribute 'sampler'`, a Langfuse SDK and Logfire clash. The judge still runs and traces still export.
+  - **Bug:** `backend/growth/observability.py` still uses `service_name="alex_retirement_agent"` (copied from Retirement), so Growth traces appear under the Retirement name.
+- **Guide 8 status:** LangFuse is done; `terraform/8_enterprise` (CloudWatch dashboards and alarms) is not applied. There is no WAF; the old twin project's WAF was deleted 2026-11-22.
 - **Frontend:**
   - Next.js Pages Router with `output: 'export'`, so it is a static site with no SSR and no API routes.
   - `lib/config.ts` sends API calls to `http://localhost:8000` on localhost. Elsewhere it uses relative `/api/*` paths, which CloudFront routes to API Gateway.
