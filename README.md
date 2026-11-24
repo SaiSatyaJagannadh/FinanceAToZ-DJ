@@ -6,6 +6,15 @@
 
 Works on desktop and phones. No install needed.
 
+| Link | What it is |
+|---|---|
+| [Live app](https://d1n70aw5kbc7vt.cloudfront.net) | FinFreedom AI on CloudFront |
+| [GitHub repo](https://github.com/SaiSatyaJagannadh/FinanceAToZ-DJ) | This source code |
+| [Architecture write-up](FINFREEDOM_AI_ARCHITECTURE.md) | Every component, the analysis flow and the data model |
+| [LangFuse (agent traces)](https://us.cloud.langfuse.com) | Prompts, tool calls, tokens and timing for every agent run (project members only) |
+| [Deployment guides](guides/) | The 8 step-by-step course guides |
+| [FinAI](https://github.com/SaiSatyaJagannadh/FinAI) | Source of the stock scoring engines |
+
 ## Try it in 2 minutes
 
 1. **Open the [live app](https://d1n70aw5kbc7vt.cloudfront.net)** and type a stock name or ticker into the free stock check, e.g. `Apple`, `NVDA`, `Infosys` (pick 🇮🇳 India for NSE/BSE). You get a five-pillar score and a BUY / HOLD / SELL call. No account needed: 3 free checks.
@@ -45,7 +54,7 @@ It started as **Alex** (Agentic Learning Equities eXplainer), the Week 3–4 cap
 | **Stock Check** | Score any US or NSE/BSE stock by **company name or ticker** ("Infosys", "Apple", "INFY"), using the FinAI engines: fundamentals, growth, technicals, institutional conviction, risk, moat, projections, analyst ratings and news. Free without an account (3 checks, 5 chat questions) |
 | **Portfolio & FIRE profile** | Accounts, positions (added by name), FIRE calculator and risk assessment |
 | **Research pipeline** | A scheduled Researcher agent browses the web and builds a vector knowledge base that the Reporter uses |
-| **Production practices** | Clerk auth, per-user data isolation, CloudWatch dashboards, LangFuse tracing, LLM-as-judge guardrail |
+| **Production practices** | Clerk auth, per-user data isolation, structured CloudWatch logs, LangFuse tracing on every agent, LLM-as-judge guardrail on reports |
 | **Mobile-friendly UI** | Five-tab phone nav, tables that hide secondary columns, stacked headers, scrollable modals, no iOS input zoom |
 
 ## Account types
@@ -78,7 +87,36 @@ The Accounts page suggests these as one-click buttons: on the empty state, as a 
 | Agents | `alex-planner`, `-tagger`, `-reporter`, `-charter`, `-retirement`, `-growth` Lambdas + SQS queue and dead-letter queue | `terraform/6_agents` |
 | Website + API | S3 + CloudFront (live link above), `alex-api` Lambda (FastAPI) behind API Gateway | `terraform/7_frontend` |
 | Stock check + public chat | `alex-stockcheck` Lambda (container) with a public function URL | `terraform/9_stockcheck` |
+| Observability | LangFuse Cloud (US) tracing for all 6 agents, keys passed as Lambda env vars | `terraform/6_agents` (`terraform.tfvars`) |
 | Monitoring (optional) | CloudWatch dashboards and alarms (not applied yet) | `terraform/8_enterprise` |
+
+## Observability with LangFuse
+
+Every agent Lambda wraps its run in `observe()` (`backend/<agent>/observability.py`). Logfire instruments the OpenAI Agents SDK and sends each run to LangFuse as a trace, flushing before the Lambda returns.
+
+**View traces:** sign in at **[https://us.cloud.langfuse.com](https://us.cloud.langfuse.com)** → your project → **Tracing → Traces**. Filter by service name (`alex_planner_agent`, `alex_reporter_agent`, `alex_charter_agent`, `alex_retirement_agent`, …) and open a trace to see the exact prompts, model responses, tool calls, token usage and timing.
+
+**Set it up:** add the keys to `terraform/6_agents/terraform.tfvars`. That file is gitignored, so the keys never reach GitHub. Every line needs `=`; a line like `langfuse_host"…"` fails with `Invalid block definition`.
+
+```hcl
+langfuse_public_key = "pk-lf-..."
+langfuse_secret_key = "sk-lf-..."
+langfuse_host       = "https://us.cloud.langfuse.com"
+openai_api_key      = "sk-..."   # needed for trace export even though the models run on Bedrock
+```
+
+Then deploy and watch:
+
+| Step | Run from | Command |
+|---|---|---|
+| Package and deploy the agents with the keys | `backend` | `uv run deploy_all_lambdas.py --package` |
+| Deploy the app | `scripts` | `uv run deploy.py` |
+| Run an analysis (or click **Run analysis** on the site) | `backend` | `uv run test_full.py` |
+| Tail all agents' logs live | `backend` | `uv run watch_agents.py` |
+
+In CloudWatch, a working setup logs `LangFuse authentication check passed` and `Traces flushed successfully`.
+
+With LangFuse on, the Reporter's LLM-as-judge (`backend/reporter/judge.py`) also runs on each report and replaces any report that scores below 0.3. Uploading the judge's score to LangFuse currently logs `Failed to process score event … 'ProxyTracerProvider' object has no attribute 'sampler'`, a clash between the Langfuse SDK and Logfire tracing libraries. The judge still runs and traces still export.
 
 ## Tech stack
 
@@ -115,10 +153,19 @@ All Python runs through **uv** (`uv run …`). Docker Desktop must be running fo
 
 Configuration comes from the root `.env` (template: `.env.example`), `frontend/.env.local`, and each `terraform/*/terraform.tfvars`.
 
-## Course order of play (original Alex guides)
+## Course progress (original Alex guides)
 
-- **Week 3:** Day 3 `1_permissions`, `2_sagemaker` · Day 4 `3_ingest` · Day 5 `4_researcher`
-- **Week 4:** Day 1 `5_database` · Day 2 `6_agents` · Day 3 `7_frontend` · Day 4 `8_enterprise`
+| Week / Day | Guide | Status |
+|---|---|---|
+| Week 3 · Day 3 | [1 Permissions](guides/1_permissions.md) | ✅ Done |
+| Week 3 · Day 3 | [2 SageMaker embeddings](guides/2_sagemaker.md) | ✅ Deployed |
+| Week 3 · Day 4 | [3 Ingestion + S3 Vectors](guides/3_ingest.md) | ✅ Deployed |
+| Week 3 · Day 5 | [4 Researcher](guides/4_researcher.md) | ✅ Deployed (schedule not enabled) |
+| Week 4 · Day 1 | [5 Database](guides/5_database.md) | ✅ Deployed (express cluster, auto-pause) |
+| Week 4 · Day 2 | [6 Agent orchestra](guides/6_agents.md) | ✅ Deployed (+ Growth agent) |
+| Week 4 · Day 3 | [7 Frontend + API](guides/7_frontend.md) | ✅ [Live](https://d1n70aw5kbc7vt.cloudfront.net) |
+| Week 4 · Day 4 | [8 Enterprise](guides/8_enterprise.md) | 🟡 LangFuse observability done ([traces](https://us.cloud.langfuse.com)); CloudWatch dashboards/alarms (`terraform/8_enterprise`) not applied |
+| Beyond the course | Stock check + public chat | ✅ Deployed (`terraform/9_stockcheck`) |
 
 ## Cost
 
