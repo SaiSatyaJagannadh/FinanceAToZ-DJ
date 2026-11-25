@@ -146,20 +146,12 @@ resource "aws_lambda_function" "researcher" {
   }
 }
 
-# Public function URL for the researcher service
+# Function URL for the researcher service. AWS_IAM: callers must sign requests with AWS credentials
+# (test_research.py and the scheduler Lambda do), so nobody on the internet can trigger paid research runs.
 resource "aws_lambda_function_url" "researcher" {
   count              = local.researcher_deployed ? 1 : 0
   function_name      = aws_lambda_function.researcher[0].function_name
-  authorization_type = "NONE"
-}
-
-resource "aws_lambda_permission" "allow_public_function_url_invoke" {
-  count                    = local.researcher_deployed ? 1 : 0
-  statement_id             = "AllowPublicFunctionInvokeViaUrl"
-  action                   = "lambda:InvokeFunction"
-  function_name            = aws_lambda_function.researcher[0].function_name
-  principal                = "*"
-  invoked_via_function_url = true
+  authorization_type = "AWS_IAM"
 }
 
 # IAM role for EventBridge
@@ -232,6 +224,22 @@ resource "aws_iam_role" "lambda_scheduler_role" {
     Project = "alex"
     Part    = "4"
   }
+}
+
+# Let the scheduler Lambda call the IAM-protected researcher URL
+resource "aws_iam_role_policy" "lambda_scheduler_invoke_url" {
+  count = local.scheduler_active ? 1 : 0
+  name  = "alex-scheduler-invoke-researcher-url"
+  role  = aws_iam_role.lambda_scheduler_role[0].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = ["lambda:InvokeFunctionUrl"]
+      Resource = [aws_lambda_function.researcher[0].arn]
+    }]
+  })
 }
 
 # Lambda basic execution policy

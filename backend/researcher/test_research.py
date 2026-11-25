@@ -11,7 +11,19 @@ import subprocess
 import sys
 from pathlib import Path
 
+import boto3
 import requests
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
+
+
+def signed(method: str, url: str, payload: dict | None = None) -> dict:
+    """Headers + body for the IAM-protected function URL, signed with your AWS CLI credentials."""
+    body = json.dumps(payload) if payload is not None else None
+    req = AWSRequest(method=method, url=url, data=body, headers={"Content-Type": "application/json"} if body else {})
+    session = boto3.Session()
+    SigV4Auth(session.get_credentials(), "lambda", session.region_name or "us-east-1").add_auth(req)
+    return {"headers": dict(req.headers), "data": body}
 
 
 TERRAFORM_DIR = "terraform/4_researcher"
@@ -67,7 +79,7 @@ def test_research(topic=None):
     print("\nChecking service health...")
     try:
         health_url = f"{service_url}/health"
-        response = requests.get(health_url, timeout=10)
+        response = requests.get(health_url, timeout=10, **signed("GET", health_url))
         response.raise_for_status()
         print("✅ Service is healthy")
     except requests.exceptions.RequestException as e:
@@ -85,8 +97,8 @@ def test_research(topic=None):
         payload = {"topic": topic} if topic else {}
         response = requests.post(
             research_url,
-            json=payload,
-            timeout=180  # Give it 3 minutes for research
+            timeout=180,  # Give it 3 minutes for research
+            **signed("POST", research_url, payload),
         )
         response.raise_for_status()
 
