@@ -196,14 +196,18 @@ resource "aws_iam_role_policy" "api_lambda_bedrock" {
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
+    Statement = concat([{
       Effect = "Allow"
       Action = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
       Resource = [
         "arn:aws:bedrock:*::foundation-model/*",
         "arn:aws:bedrock:*:*:inference-profile/*"
       ]
-    }]
+      }], var.chat_guardrail_id == "" ? [] : [{
+      Effect   = "Allow"
+      Action   = ["bedrock:ApplyGuardrail"]
+      Resource = ["arn:aws:bedrock:${var.bedrock_region}:${data.aws_caller_identity.current.account_id}:guardrail/${var.chat_guardrail_id}"]
+    }])
   })
 }
 
@@ -239,8 +243,10 @@ resource "aws_lambda_function" "api" {
       CORS_ORIGINS = "http://localhost:3000,https://${aws_cloudfront_distribution.main.domain_name}"
 
       # Portfolio chat (/api/chat)
-      BEDROCK_MODEL_ID = var.bedrock_model_id
-      BEDROCK_REGION   = var.bedrock_region
+      BEDROCK_MODEL_ID          = var.bedrock_model_id
+      BEDROCK_REGION            = var.bedrock_region
+      BEDROCK_GUARDRAIL_ID      = var.chat_guardrail_id
+      BEDROCK_GUARDRAIL_VERSION = var.chat_guardrail_version
     }
   }
 

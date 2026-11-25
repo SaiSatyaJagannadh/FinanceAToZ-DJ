@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from fastapi_clerk_auth import ClerkConfig, ClerkHTTPBearer, HTTPAuthorizationCredentials
 
 from src import Database
+from src.guardrails import looks_like_injection
 from src.schemas import (
     UserCreate,
     AccountCreate,
@@ -128,6 +129,12 @@ class PositionCreateRequest(PositionCreate):
     """Position plus the company name picked from symbol search, so new instruments get a real name"""
     name: Optional[str] = Field(default=None, max_length=255)
 
+def reject_injection(*texts: Optional[str]) -> None:
+    """Free text the user types here ends up inside agent prompts, so block prompt-injection attempts."""
+    if any(looks_like_injection(t or "") for t in texts):
+        raise HTTPException(status_code=400, detail="That text looks like an instruction to the AI. Please use a plain name or description.")
+
+
 class ChatMessage(BaseModel):
     role: str = Field(pattern="^(user|assistant)$")
     content: str = Field(max_length=2000)
@@ -205,6 +212,7 @@ async def get_or_create_user(
 @app.put("/api/user")
 async def update_user(user_update: UserUpdate, clerk_user_id: str = Depends(get_current_user_id)):
     """Update user settings"""
+    reject_injection(user_update.display_name)
 
     try:
         # Get user
@@ -248,6 +256,7 @@ async def list_accounts(clerk_user_id: str = Depends(get_current_user_id)):
 @app.post("/api/accounts")
 async def create_account(account: AccountCreate, clerk_user_id: str = Depends(get_current_user_id)):
     """Create new account"""
+    reject_injection(account.account_name, account.account_purpose)
 
     try:
         # Verify user exists
@@ -274,6 +283,7 @@ async def create_account(account: AccountCreate, clerk_user_id: str = Depends(ge
 @app.put("/api/accounts/{account_id}")
 async def update_account(account_id: str, account_update: AccountUpdate, clerk_user_id: str = Depends(get_current_user_id)):
     """Update account"""
+    reject_injection(account_update.account_name, account_update.account_purpose)
 
     try:
         # Verify account belongs to user
@@ -366,6 +376,7 @@ async def list_positions(account_id: str, clerk_user_id: str = Depends(get_curre
 @app.post("/api/positions")
 async def create_position(position: PositionCreateRequest, clerk_user_id: str = Depends(get_current_user_id)):
     """Create position"""
+    reject_injection(position.name)
 
     try:
         # Verify account belongs to user
@@ -626,12 +637,22 @@ async def chat(request: ChatRequest, clerk_user_id: str = Depends(get_current_us
 
     try:
         bedrock = boto3.client('bedrock-runtime', region_name=os.getenv('BEDROCK_REGION', 'us-west-2'))
+        messages = [{'role': m.role, 'content': [{'text': m.content}]} for m in turns]
+        kwargs = {}
+        if os.getenv('BEDROCK_GUARDRAIL_ID'):
+            # Only the newest user message is checked for prompt attacks; content filters also check the reply
+            messages[-1]['content'] = [{'guardContent': {'text': {'text': turns[-1].content}}}]
+            kwargs['guardrailConfig'] = {'guardrailIdentifier': os.environ['BEDROCK_GUARDRAIL_ID'],
+                                         'guardrailVersion': os.getenv('BEDROCK_GUARDRAIL_VERSION', 'DRAFT')}
         resp = bedrock.converse(
             modelId=os.getenv('BEDROCK_MODEL_ID', 'us.amazon.nova-pro-v1:0'),
             system=[{'text': system}],
-            messages=[{'role': m.role, 'content': [{'text': m.content}]} for m in turns],
+            messages=messages,
             inferenceConfig={'maxTokens': 700, 'temperature': 0.4},
+            **kwargs,
         )
+        if resp.get('stopReason') == 'guardrail_intervened':
+            logger.warning("Guardrail intervened on portfolio chat")
         return {"reply": resp['output']['message']['content'][0]['text']}
     except Exception as e:
         logger.error(f"Chat failed: {e}")

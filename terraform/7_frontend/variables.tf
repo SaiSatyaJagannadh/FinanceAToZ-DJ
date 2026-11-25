@@ -26,3 +26,15 @@ variable "bedrock_region" {
   type        = string
   default     = "us-west-2"
 }
+
+variable "chat_guardrail_id" {
+  description = "Bedrock Guardrail for /api/chat, from `terraform output chat_guardrail_id` in 9_stockcheck. Empty disables it."
+  type        = string
+  default     = ""
+}
+
+variable "chat_guardrail_version" {
+  description = "Guardrail version, from `terraform output chat_guardrail_version` in 9_stockcheck"
+  type        = string
+  default     = "DRAFT"
+}
