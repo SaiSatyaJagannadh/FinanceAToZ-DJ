@@ -25,3 +25,15 @@ variable "stockcheck_image_uri" {
   type        = string
   default     = ""
 }
+
+variable "daily_check_limit" {
+  description = "Stock checks allowed per visitor IP per day (server-side cap for the public URL)"
+  type        = number
+  default     = 60
+}
+
+variable "daily_chat_limit" {
+  description = "Chat messages allowed per visitor IP per day (server-side cap for the public URL)"
+  type        = number
+  default     = 60
+}

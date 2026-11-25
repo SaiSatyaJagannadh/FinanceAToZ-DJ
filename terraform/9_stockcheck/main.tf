@@ -13,7 +13,73 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Guardrails must live in the Bedrock region the chats call
+provider "aws" {
+  alias  = "bedrock"
+  region = var.bedrock_region
+}
+
 data "aws_caller_identity" "current" {}
+
+# Amazon Bedrock Guardrail shared by both chats (this public chat and the signed-in /api/chat in 7_frontend).
+# PROMPT_ATTACK blocks jailbreak / prompt-injection attempts in the user's message;
+# the content filters block harmful requests and replies. Billed per text unit, only when a chat runs.
+resource "aws_bedrock_guardrail" "chat" {
+  provider                  = aws.bedrock
+  name                      = "alex-chat-guardrail"
+  blocked_input_messaging   = "I can't help with that. Ask me about investing, your portfolio or a stock check."
+  blocked_outputs_messaging = "I can't share that answer. Try asking about investing, your portfolio or a stock check."
+
+  content_policy_config {
+    filters_config {
+      type            = "PROMPT_ATTACK"
+      input_strength  = "HIGH"
+      output_strength = "NONE"
+    }
+    dynamic "filters_config" {
+      for_each = ["HATE", "INSULTS", "SEXUAL", "VIOLENCE", "MISCONDUCT"]
+      content {
+        type            = filters_config.value
+        input_strength  = "HIGH"
+        output_strength = "HIGH"
+      }
+    }
+  }
+
+  tags = {
+    Project = "alex"
+    Part    = "9"
+  }
+}
+
+resource "aws_bedrock_guardrail_version" "chat" {
+  provider      = aws.bedrock
+  guardrail_arn = aws_bedrock_guardrail.chat.guardrail_arn
+  description   = "Managed by terraform/9_stockcheck"
+}
+
+# Per-visitor daily counters for the free tier (the frontend's 3-check limit is client-side only).
+# Pay-per-request with TTL cleanup, so it costs effectively nothing.
+resource "aws_dynamodb_table" "usage" {
+  name         = "alex-stockcheck-usage"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "pk"
+
+  attribute {
+    name = "pk"
+    type = "S"
+  }
+
+  ttl {
+    attribute_name = "expires_at"
+    enabled        = true
+  }
+
+  tags = {
+    Project = "alex"
+    Part    = "9"
+  }
+}
 
 # Public (no login) endpoints for the frontend: free stock check (FinAI engines) and chat.
 # Image is built and pushed by backend/stockcheck/deploy.py, which then sets stockcheck_image_uri.
@@ -73,6 +139,27 @@ resource "aws_iam_role_policy" "stockcheck_bedrock" {
   })
 }
 
+resource "aws_iam_role_policy" "stockcheck_guardrail_usage" {
+  name = "alex-stockcheck-guardrail-usage"
+  role = aws_iam_role.stockcheck.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["bedrock:ApplyGuardrail"]
+        Resource = [aws_bedrock_guardrail.chat.guardrail_arn]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["dynamodb:UpdateItem"]
+        Resource = [aws_dynamodb_table.usage.arn]
+      }
+    ]
+  })
+}
+
 resource "aws_lambda_function" "stockcheck" {
   count         = local.deployed ? 1 : 0
   function_name = "alex-stockcheck"
@@ -85,8 +172,13 @@ resource "aws_lambda_function" "stockcheck" {
 
   environment {
     variables = {
-      BEDROCK_MODEL_ID = var.bedrock_model_id
-      BEDROCK_REGION   = var.bedrock_region
+      BEDROCK_MODEL_ID          = var.bedrock_model_id
+      BEDROCK_REGION            = var.bedrock_region
+      BEDROCK_GUARDRAIL_ID      = aws_bedrock_guardrail.chat.guardrail_id
+      BEDROCK_GUARDRAIL_VERSION = aws_bedrock_guardrail_version.chat.version
+      USAGE_TABLE               = aws_dynamodb_table.usage.name
+      DAILY_CHECK_LIMIT         = var.daily_check_limit
+      DAILY_CHAT_LIMIT          = var.daily_chat_limit
     }
   }
 

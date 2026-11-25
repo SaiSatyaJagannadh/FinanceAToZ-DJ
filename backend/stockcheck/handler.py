@@ -14,6 +14,7 @@ Served by a Lambda function URL; CORS is configured on the URL in terraform/9_st
 
 import json
 import os
+import time
 import subprocess
 import sys
 from pathlib import Path
@@ -35,8 +36,36 @@ from finvizService import fetch_finviz  # noqa: E402
 BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "us.amazon.nova-pro-v1:0")
 bedrock = boto3.client("bedrock-runtime", region_name=os.getenv("BEDROCK_REGION", "us-west-2"))
 
-# ponytail: per-request caps only; add a per-IP rate limit (e.g. DynamoDB counter) if the free chat gets abused
 MAX_TURNS, MAX_CHARS = 12, 1000
+
+# Server-side free-tier cap: the frontend's "3 free checks" is client-side only, so the public URL
+# also counts requests per visitor IP per day in DynamoDB (terraform/9_stockcheck).
+USAGE_TABLE = os.getenv("USAGE_TABLE")
+DAILY_LIMITS = {"check": int(os.getenv("DAILY_CHECK_LIMIT", "60")), "chat": int(os.getenv("DAILY_CHAT_LIMIT", "60"))}
+GUARDRAIL_ID, GUARDRAIL_VERSION = os.getenv("BEDROCK_GUARDRAIL_ID"), os.getenv("BEDROCK_GUARDRAIL_VERSION", "DRAFT")
+dynamodb = boto3.client("dynamodb") if USAGE_TABLE else None
+
+
+def over_daily_limit(ip: str, kind: str) -> bool:
+    """Atomically count this request; True once the visitor has used up today's allowance."""
+    if not dynamodb:
+        return False
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    try:
+        dynamodb.update_item(
+            TableName=USAGE_TABLE,
+            Key={"pk": {"S": f"{kind}#{ip}#{day}"}},
+            UpdateExpression="ADD n :one SET expires_at = :exp",
+            ConditionExpression="attribute_not_exists(n) OR n < :limit",
+            ExpressionAttributeValues={":one": {"N": "1"}, ":limit": {"N": str(DAILY_LIMITS[kind])},
+                                       ":exp": {"N": str(int(time.time()) + 2 * 86400)}},
+        )
+        return False
+    except dynamodb.exceptions.ConditionalCheckFailedException:
+        return True
+    except Exception as e:  # never block users because the counter is unavailable
+        print(f"usage counter error: {e!r}")
+        return False
 
 CHAT_SYSTEM = """You are FinFreedom AI, a friendly AI financial guide inside the FinFreedom AI portfolio app.
 Answer investing questions in plain language: concepts, ETFs, funds, stocks, diversification,
@@ -320,12 +349,21 @@ def chat(messages: list, context: dict | None) -> str:
     if context:
         system += "\n\nStock check result the user is looking at:\n" + json.dumps(context)[:4000]
 
+    messages = [{"role": m["role"], "content": [{"text": str(m["content"])[:MAX_CHARS]}]} for m in turns]
+    kwargs = {}
+    if GUARDRAIL_ID:
+        # Only the newest user message is checked for prompt attacks (guardContent); content filters also check the reply
+        messages[-1]["content"] = [{"guardContent": {"text": {"text": messages[-1]["content"][0]["text"]}}}]
+        kwargs["guardrailConfig"] = {"guardrailIdentifier": GUARDRAIL_ID, "guardrailVersion": GUARDRAIL_VERSION}
     resp = bedrock.converse(
         modelId=BEDROCK_MODEL_ID,
         system=[{"text": system}],
-        messages=[{"role": m["role"], "content": [{"text": str(m["content"])[:MAX_CHARS]}]} for m in turns],
+        messages=messages,
         inferenceConfig={"maxTokens": 600, "temperature": 0.4},
+        **kwargs,
     )
+    if resp.get("stopReason") == "guardrail_intervened":
+        print("guardrail intervened on public chat")
     return resp["output"]["message"]["content"][0]["text"]
 
 
@@ -342,6 +380,11 @@ def lambda_handler(event, context):
         body = json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:
         return respond(400, {"error": "Invalid JSON"})
+
+    ip = event.get("requestContext", {}).get("http", {}).get("sourceIp", "unknown")
+    kind = "check" if path.endswith("/check") else "chat" if path.endswith("/chat") else None
+    if kind and over_daily_limit(ip, kind):
+        return respond(429, {"error": "You've reached today's free limit. Sign in for unlimited use, or try again tomorrow."})
 
     try:
         if path.endswith("/check"):
