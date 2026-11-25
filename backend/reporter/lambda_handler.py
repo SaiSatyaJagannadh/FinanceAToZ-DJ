@@ -25,6 +25,7 @@ except ImportError:
 
 # Import database package
 from src import Database
+from src.guardrails import truncate_response
 
 from templates import REPORTER_INSTRUCTIONS
 from agent import create_agent, ReporterContext
@@ -83,7 +84,7 @@ async def run_reporter_agent(
 
         # Save the report to database
         report_payload = {
-            "content": response,
+            "content": truncate_response(response),
             "generated_at": datetime.utcnow().isoformat(),
             "agent": "reporter",
         }

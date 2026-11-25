@@ -21,6 +21,25 @@ except ImportError:
 # Import database package
 from src import Database
 
+CHART_TYPES = {"pie", "donut", "bar", "horizontalBar", "line"}
+
+
+def validate_charts(charts) -> list:
+    """Keep only well-formed charts: a known type and a non-empty list of {name, numeric value} points."""
+    if not isinstance(charts, list):
+        return []
+    valid = []
+    for i, chart in enumerate(charts):
+        points = chart.get("data") if isinstance(chart, dict) else None
+        ok = (chart.get("type") in CHART_TYPES if isinstance(chart, dict) else False) and isinstance(points, list) and points and all(
+            isinstance(p, dict) and "name" in p and isinstance(p.get("value"), (int, float)) for p in points
+        )
+        if ok:
+            valid.append(chart)
+        else:
+            logging.getLogger().warning(f"Charter: dropping invalid chart {i}: {str(chart)[:200]}")
+    return valid
+
 from templates import CHARTER_INSTRUCTIONS
 from agent import create_agent
 from observability import observe
@@ -85,7 +104,7 @@ async def run_charter_agent(job_id: str, portfolio_data: Dict[str, Any], db=None
                 
                 try:
                     parsed_data = json.loads(json_str)
-                    charts = parsed_data.get('charts', [])
+                    charts = validate_charts(parsed_data.get('charts', []))
                     logger.info(f"Charter: Successfully parsed JSON, found {len(charts)} charts")
                     
                     if charts:

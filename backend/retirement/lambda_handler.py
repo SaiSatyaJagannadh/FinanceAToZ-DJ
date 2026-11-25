@@ -26,6 +26,7 @@ except ImportError:
 
 # Import database package
 from src import Database
+from src.guardrails import truncate_response
 
 from templates import RETIREMENT_INSTRUCTIONS
 from agent import create_agent
@@ -104,7 +105,7 @@ async def run_retirement_agent(job_id: str, portfolio_data: Dict[str, Any]) -> D
         
         # Save the analysis to database
         retirement_payload = {
-            'analysis': result.final_output,
+            'analysis': truncate_response(result.final_output),
             'generated_at': datetime.utcnow().isoformat(),
             'agent': 'retirement'
         }
