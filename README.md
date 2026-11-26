@@ -54,7 +54,7 @@ It started as **Alex** (Agentic Learning Equities eXplainer), the Week 3–4 cap
 | **Stock Check** | Score any US or NSE/BSE stock by **company name or ticker** ("Infosys", "Apple", "INFY"), using the FinAI engines: fundamentals, growth, technicals, institutional conviction, risk, moat, projections, analyst ratings and news. Free without an account (3 checks, 5 chat questions) |
 | **Portfolio & FIRE profile** | Accounts, positions (added by name), FIRE calculator and risk assessment |
 | **Research pipeline** | A scheduled Researcher agent browses the web and builds a vector knowledge base that the Reporter uses |
-| **Production practices** | Clerk auth, per-user data isolation, structured CloudWatch logs, LangFuse tracing on every agent, LLM-as-judge guardrail on reports |
+| **Production practices** | Clerk auth, per-user data isolation, structured CloudWatch logs, LangFuse tracing on every agent, LLM-as-judge on reports, plus the guardrails and security listed under [Guardrails and security](#guardrails-and-security) |
 | **Mobile-friendly UI** | Five-tab phone nav, tables that hide secondary columns, stacked headers, scrollable modals, no iOS input zoom |
 
 ## Account types
@@ -118,6 +118,40 @@ In CloudWatch, a working setup logs `LangFuse authentication check passed` and `
 
 With LangFuse on, the Reporter's LLM-as-judge (`backend/reporter/judge.py`) also runs on each report and replaces any report that scores below 0.3. Uploading the judge's score to LangFuse currently logs `Failed to process score event … 'ProxyTracerProvider' object has no attribute 'sampler'`, a clash between the Langfuse SDK and Logfire tracing libraries. The judge still runs and traces still export.
 
+## Guardrails and security
+
+✅ = live now. 🟡 = in the code (commits `3210efb`–`7bd64ce`) but **not deployed yet**; see [Deploying the guardrail changes](#deploying-the-guardrail-changes).
+
+| Area | Protection | Where | Status |
+|---|---|---|---|
+| Auth | Clerk sign-in token checked on every `/api/*` route | `backend/api/main.py` | ✅ |
+| Data isolation | Accounts, positions and jobs return 403 unless they belong to the signed-in user | `backend/api/main.py` | ✅ |
+| API abuse | API Gateway throttling, 100 requests/s; CORS limited to the site | `terraform/7_frontend` | ✅ |
+| Secrets | Keys only in gitignored `terraform.tfvars` / `.env` and Lambda env vars; none in git | | ✅ |
+| Rate limits | Retry with exponential backoff (tenacity) on Bedrock rate limits in every agent | `backend/<agent>/` | ✅ |
+| Report quality | LLM-as-judge replaces reports that score below 0.3 (runs when LangFuse is on) | `backend/reporter/judge.py` | ✅ |
+| Tagger output | Pydantic validation: allocations must sum to 100% | `backend/tagger/agent.py` | ✅ |
+| Chat size | Message length and turn caps on both chats | `backend/api/main.py`, `backend/stockcheck/handler.py` | ✅ |
+| Prompt injection in user text | Account names/purposes, position names and display name that look like AI instructions are rejected (400) | `backend/database/src/guardrails.py`, `backend/api/main.py` | 🟡 |
+| Chat safety | **Amazon Bedrock Guardrail**: prompt-attack (jailbreak/injection) filter on the user's message, plus hate, insults, sexual, violence and misconduct filters on input and output, for both chats | `terraform/9_stockcheck` (`alex-chat-guardrail`) | 🟡 |
+| Chart output | Charter drops malformed charts (must be a known type with `{name, value}` points) | `backend/charter/lambda_handler.py` | 🟡 |
+| Output size | Report, retirement and growth text capped at 50,000 characters | `src/guardrails.py` `truncate_response` | 🟡 |
+| Free-tier abuse | Server-side cap per visitor IP per day (60 checks, 60 chat messages; HTTP 429 after), counted in DynamoDB. Today the "3 free checks" is only browser-side | `backend/stockcheck/handler.py`, `alex-stockcheck-usage` table | 🟡 |
+| Researcher endpoint | Function URL switched from public to AWS IAM auth; `test_research.py` and the scheduler sign requests (SigV4) | `terraform/4_researcher` | 🟡 |
+| WAF | Not used. Not needed at this scale (about $8/month); see Guide 8 to add one | | ➖ |
+
+Self-checks: `uv run -m src.guardrails` and `uv run test_resume_retry.py` (both in `backend/database`).
+
+### Deploying the guardrail changes
+
+Run in this order, with Docker Desktop running:
+
+1. `backend/stockcheck` → `uv run deploy.py`. This creates the Bedrock Guardrail and the usage table, and updates the stock check Lambda.
+2. `terraform/9_stockcheck` → `terraform output chat_guardrail_id chat_guardrail_version`. Copy both values into `terraform/7_frontend/terraform.tfvars` as `chat_guardrail_id` and `chat_guardrail_version`.
+3. `backend` → `uv run deploy_all_lambdas.py --package` (agents).
+4. `scripts` → `uv run deploy.py` (API with the injection checks and the chat guardrail).
+5. `terraform/4_researcher` → `terraform apply` (Researcher URL to IAM auth).
+
 ## Tech stack
 
 - **AI:** Amazon Bedrock (Nova Pro), OpenAI Agents SDK + LiteLLM, SageMaker Serverless embeddings, S3 Vectors
@@ -169,7 +203,7 @@ Configuration comes from the root `.env` (template: `.env.example`), `frontend/.
 
 ## Cost
 
-Aurora **auto-pauses** after 5 idle minutes (Serverless v2 `MinCapacity=0`, `SecondsUntilAutoPause=300`), so an idle app costs almost nothing. That's about $1–5/month instead of about $44/month at the old 0.5 ACU minimum. The first request after a pause waits about 15 seconds while Aurora resumes. `backend/database/src/client.py` retries `DatabaseResumingException`, so users see a slow first load, not an error. No WAF is used. Everything else (Lambda, SageMaker Serverless, S3, CloudFront) is pay-per-use.
+Aurora **auto-pauses** after 5 idle minutes (Serverless v2 `MinCapacity=0`, `SecondsUntilAutoPause=300`), so an idle app costs almost nothing. That's about $1–5/month instead of about $44/month at the old 0.5 ACU minimum. The first request after a pause waits about 15 seconds while Aurora resumes. `backend/database/src/client.py` retries `DatabaseResumingException`, so users see a slow first load, not an error. No WAF is used. Everything else (Lambda, SageMaker Serverless, S3, CloudFront) is pay-per-use. The guardrail changes add no always-on cost: the Bedrock Guardrail is billed per text unit (about $0.0002 per chat message), and the DynamoDB usage table is pay-per-request with TTL cleanup. At this app's traffic that is well under $1/month.
 
 To change the pause setting:
 

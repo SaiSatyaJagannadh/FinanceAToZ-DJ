@@ -323,7 +323,7 @@ The full end-to-end explanation (diagrams, every agent, chat grounding, what is 
     - `POST /check` runs FinAI's scoring engines, copied into `engine/` from github.com/SaiSatyaJagannadh/FinAI: yfinance plus Screener.in data, scored by the Node `analysisRunner.js`.
     - `POST /chat` calls Nova Pro through the Bedrock `converse` API.
     - The frontend reads the URL from `NEXT_PUBLIC_STOCKCHECK_URL` in `frontend/.env.local`, which `scripts/deploy.py` copies into the production build.
-    - Signed-out users get 3 checks and 5 chat questions before a sign-up prompt. This is enforced client-side only (localStorage/React state).
+    - Signed-out users get 3 checks and 5 chat questions before a sign-up prompt. This is enforced client-side only (localStorage/React state). Commit `2e97c94` (not deployed yet) adds a server-side cap per IP per day: the `alex-stockcheck-usage` DynamoDB table, `DAILY_CHECK_LIMIT` and `DAILY_CHAT_LIMIT` (default 60), HTTP 429 when over, and it fails open.
     - `/check` also returns FinAI's projection/moat (`engine/extrasRunner.js`) and Yahoo analyst ratings, upgrades/downgrades, events and news.
     - For US stocks, Screener.in has no data, so `us_ownership()` maps Yahoo insider, fund and institution stakes into the Screener shareholding shape for FinAI's conviction engine.
     - FinViz returns 403 from scripts, so `yahoo_estimates()` supplies the forward EPS growth that `projectionMoat.js` reads.
@@ -343,6 +343,18 @@ The full end-to-end explanation (diagrams, every agent, chat grounding, what is 
   - **tfvars syntax:** every line needs `=`. `langfuse_host"…"` gives Terraform `Invalid block definition`, and then `deploy_all_lambdas.py` fails at the taint step.
   - **Known warning:** uploading the judge score logs `Failed to process score event … 'ProxyTracerProvider' object has no attribute 'sampler'`, a Langfuse SDK and Logfire clash. The judge still runs and traces still export.
   - **Bug:** `backend/growth/observability.py` still uses `service_name="alex_retirement_agent"` (copied from Retirement), so Growth traces appear under the Retirement name.
+- **Guardrails and security commits (2026-11-24, pushed, NOT deployed yet; AWS still runs the old code):**
+  - `src/guardrails.py` (in the shared `backend/database` package, so every agent and the API has it) holds `looks_like_injection`, `sanitize_user_input` and `truncate_response`. Self-check: `uv run -m src.guardrails`.
+  - **Charter:** `validate_charts` keeps only charts with a known type and `{name, numeric value}` points. Guide 8's version expects `category` for bar charts; this frontend uses `name`.
+  - **Reporter, Retirement, Growth:** saved text goes through `truncate_response` (50k characters).
+  - **API:** `reject_injection()` returns 400 for instruction-like `account_name`, `account_purpose`, position `name` and `display_name`, because these reach agent prompts.
+  - **Bedrock Guardrail `alex-chat-guardrail`:** defined in `terraform/9_stockcheck` (provider alias in `bedrock_region`), with the prompt-attack filter on input and hate/insults/sexual/violence/misconduct filters on input and output. Both chats wrap only the newest user message in `guardContent`, so the system prompt and portfolio data aren't scanned for prompt attacks.
+    - The public chat reads `BEDROCK_GUARDRAIL_ID`/`_VERSION` from 9_stockcheck.
+    - `/api/chat` reads `chat_guardrail_id`/`chat_guardrail_version` from `terraform/7_frontend/terraform.tfvars`. These must be copied from 9_stockcheck's outputs; empty turns the guardrail off.
+  - **Researcher function URL:** now `AWS_IAM`. `test_research.py` and `backend/scheduler/lambda_function.py` sign with SigV4. If you edit the scheduler, rebuild `lambda_function.zip`.
+  - **Deploy order:** stockcheck `deploy.py` → copy the guardrail outputs into 7_frontend tfvars → `deploy_all_lambdas.py --package` → `scripts/deploy.py` → `terraform apply` in 4_researcher.
+  - **Limits on what can be configured:** the account's Lambda concurrency limit is 10 (Free plan), so reserved concurrency can't be used to cap functions.
+  - **Cost:** everything new is pay-per-use, under $1/month. Aurora auto-pause and the WAF removal are unchanged.
 - **Guide 8 status:** LangFuse is done; `terraform/8_enterprise` (CloudWatch dashboards and alarms) is not applied. There is no WAF; the old twin project's WAF was deleted 2026-11-22.
 - **Frontend:**
   - Next.js Pages Router with `output: 'export'`, so it is a static site with no SSR and no API routes.
