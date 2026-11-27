@@ -305,3 +305,6 @@ Local development: `cd scripts && uv run run_local.py` (frontend :3000 + API :80
 - **Public surface:** only the Stock Check URL and the Ingest API (API key). The Stock Check's free limits are client-side only.
 - **Secrets:** the Aurora password is in Secrets Manager. The Data API uses the secret ARN.
 - **Cost:** Aurora is the biggest cost. Lambdas, SQS and SageMaker Serverless cost close to nothing when idle. Destroy what you aren't using and watch the AWS billing page.
+- **Cost (current):** Aurora auto-pauses after 5 idle minutes (`MinCapacity=0`), about $1–5/month instead of about $44. `DataAPIClient.execute` retries `DatabaseResumingException`. No WAF is used.
+- **Observability:** LangFuse traces every agent run (prompts, tool calls, tokens, timing). See the README's "Observability with LangFuse".
+- **Extra guardrails (pushed, not deployed yet):** Bedrock Guardrail `alex-chat-guardrail` on both chats, prompt-injection checks on user text in the API (`src/guardrails.py`), Charter chart validation, 50k-character output cap, a server-side free cap per IP per day for the Stock Check (DynamoDB `alex-stockcheck-usage`), and AWS IAM auth on the Researcher URL. The README's "Guardrails and security" section has the status table and deploy steps.

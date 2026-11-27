@@ -43,6 +43,123 @@ It started as **Alex** (Agentic Learning Equities eXplainer), the Week 3–4 cap
 
 **Full architecture write-up:** [FINFREEDOM_AI_ARCHITECTURE.md](FINFREEDOM_AI_ARCHITECTURE.md). It covers every component, the analysis flow, how the chat is grounded, and what is stored where.
 
+## Complete system diagram
+
+Every part of the SaaS in one view: users, auth, web and API, the agents, data, AI models, research pipeline, observability and guardrails. Dashed boxes are in the code but not deployed yet.
+
+```mermaid
+flowchart TB
+    subgraph USERS["👤 Users"]
+        V[Visitor<br/>no login]
+        M[Member<br/>signed in]
+    end
+    CLERK[Clerk<br/>sign-in / JWT]
+    M <--> CLERK
+
+    subgraph EDGE["🌐 Edge · terraform/7_frontend"]
+        CF[CloudFront<br/>d1n70aw5kbc7vt.cloudfront.net]
+        S3[S3 static site<br/>Next.js export]
+        APIGW[API Gateway<br/>throttled · CORS]
+    end
+    V --> CF
+    M --> CF
+    CF --> S3
+    CF -->|/api/*| APIGW
+
+    subgraph APP["⚙️ Application Lambdas"]
+        API[alex-api · FastAPI<br/>Clerk JWT check · 403 on other users' data<br/>prompt-injection check on user text]
+        SC[alex-stockcheck · public URL<br/>/check /search /chat<br/>FinAI scoring engines]
+    end
+    APIGW --> API
+    V -->|function URL| SC
+    M -->|function URL| SC
+
+    subgraph AGENTS["🤖 Agent orchestra · terraform/6_agents"]
+        SQS[SQS queue + DLQ]
+        PL[Planner<br/>orchestrator]
+        TG[Tagger]
+        RP[Reporter<br/>+ LLM-as-judge]
+        CH[Charter<br/>+ chart validation]
+        RT[Retirement]
+        GR[Growth]
+    end
+    API -->|/api/analyze → job_id| SQS --> PL
+    PL --> TG & RP & CH & RT & GR
+
+    subgraph DATA["🗄️ Data"]
+        DB[(Aurora PostgreSQL<br/>Data API · auto-pause 5 min<br/>users · accounts · positions<br/>instruments · jobs)]
+        DDB[(DynamoDB usage table<br/>free-tier cap per IP/day)]:::pending
+    end
+    API <--> DB
+    TG & RP & CH & RT & GR -->|write results| DB
+    PL <--> DB
+    SC -.-> DDB
+
+    subgraph AI["🧠 AI models"]
+        BR[Amazon Bedrock<br/>Nova Pro]
+        GRD[Bedrock Guardrail<br/>prompt attack · hate · insults<br/>sexual · violence · misconduct]:::pending
+    end
+    PL & TG & RP & CH & RT & GR -->|LiteLLM| BR
+    API -->|/api/chat converse| BR
+    SC -->|/chat converse| BR
+    API -.-> GRD
+    SC -.-> GRD
+
+    subgraph RESEARCH["🔎 Research pipeline · terraform/2–4"]
+        EB[EventBridge<br/>schedule, optional]
+        RS[Researcher Lambda<br/>Playwright MCP · IAM-signed URL]
+        ING[Ingest Lambda<br/>API key]
+        SM[SageMaker Serverless<br/>embeddings]
+        S3V[(S3 Vectors<br/>knowledge base)]
+    end
+    EB --> RS --> ING --> SM
+    ING --> S3V
+    RP -->|market insights| S3V
+
+    subgraph EXT["🌍 Market data"]
+        POLY[Polygon prices]
+        YF[Yahoo Finance · Screener.in]
+    end
+    PL --> POLY
+    SC --> YF
+
+    subgraph OBS["📈 Observability"]
+        LF[LangFuse traces<br/>all 6 agents]
+        CW[CloudWatch logs]
+        DASH[CloudWatch dashboards<br/>terraform/8_enterprise]:::pending
+    end
+    AGENTS -.-> LF
+    AGENTS --> CW
+    APP --> CW
+
+    classDef pending stroke-dasharray: 5 5,fill:#fff8e1
+```
+
+## Project status
+
+FinFreedom AI is a working, multi-user AI SaaS: public landing page and stock check, sign-up, per-user data, a 6-agent analysis pipeline, a grounded chat, observability and cost controls.
+
+| Area | Status |
+|---|---|
+| Live website + mobile UI | ✅ Live |
+| Sign-up / sign-in (Clerk) and per-user data isolation | ✅ Live |
+| Accounts, positions by company name, FIRE and risk profile | ✅ Live |
+| 6-agent analysis (Planner, Tagger, Reporter, Charter, Retirement, Growth) | ✅ Live, all agents verified end to end |
+| Signed-in portfolio chat + public stock check and chat | ✅ Live |
+| Research pipeline (Researcher → Ingest → S3 Vectors) | ✅ Live (schedule off) |
+| LangFuse tracing + LLM-as-judge on reports | ✅ Live |
+| Cost cuts (Aurora auto-pause, WAF removed) | ✅ Done, about $1–5/month for the database |
+| Extra guardrails (Bedrock Guardrail, injection checks, chart validation, server-side free cap, IAM on Researcher URL) | 🟡 Code pushed, not deployed. See [Deploying the guardrail changes](#deploying-the-guardrail-changes) |
+| CloudWatch dashboards and alarms (`terraform/8_enterprise`) | ⬜ Optional, not applied |
+
+### Where to go next
+
+1. **Use it:** [live app](https://d1n70aw5kbc7vt.cloudfront.net) → sign up → Accounts → Advisor Team → Run analysis → Analysis.
+2. **Watch the agents:** [LangFuse](https://us.cloud.langfuse.com) → Tracing → Traces, or `uv run watch_agents.py` in `backend`.
+3. **Turn on the extra guardrails:** the 5 steps under [Deploying the guardrail changes](#deploying-the-guardrail-changes) (pay-per-use, under $1/month).
+4. **Optional monitoring:** `terraform/8_enterprise` → `terraform apply` for CloudWatch dashboards (see [Guide 8](guides/8_enterprise.md)).
+5. **Keep costs low:** check the AWS billing console; `terraform destroy` anything you stop using (see [Cost](#cost)).
+
 ---
 
 ## Features
@@ -94,7 +211,7 @@ The Accounts page suggests these as one-click buttons: on the empty state, as a 
 
 Every agent Lambda wraps its run in `observe()` (`backend/<agent>/observability.py`). Logfire instruments the OpenAI Agents SDK and sends each run to LangFuse as a trace, flushing before the Lambda returns.
 
-**View traces:** sign in at **[https://us.cloud.langfuse.com](https://us.cloud.langfuse.com)** → your project → **Tracing → Traces**. Filter by service name (`alex_planner_agent`, `alex_reporter_agent`, `alex_charter_agent`, `alex_retirement_agent`, …) and open a trace to see the exact prompts, model responses, tool calls, token usage and timing.
+**View traces:** sign in at **[https://us.cloud.langfuse.com](https://us.cloud.langfuse.com)** → your project → **Tracing → Traces**. Filter by service name (`alex_planner_agent`, `alex_reporter_agent`, `alex_charter_agent`, `alex_retirement_agent`, `alex_growth_agent`, `alex_tagger_agent`) and open a trace to see the exact prompts, model responses, tool calls, token usage and timing.
 
 **Set it up:** add the keys to `terraform/6_agents/terraform.tfvars`. That file is gitignored, so the keys never reach GitHub. Every line needs `=`; a line like `langfuse_host"…"` fails with `Invalid block definition`.
 

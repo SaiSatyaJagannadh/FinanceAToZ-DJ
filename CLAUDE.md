@@ -43,7 +43,7 @@ Alex is a SaaS product that provides insights on users' equity portfolios throug
 - **LangFuse:** https://us.cloud.langfuse.com
 - **GitHub:** https://github.com/SaiSatyaJagannadh/FinanceAToZ-DJ
 
-Guides 1–7 are deployed, plus `9_stockcheck`. Guide 8 has LangFuse only.
+Guides 1–7 are deployed, plus `9_stockcheck`. Guide 8 has LangFuse only. `README.md` holds the full system diagram (Mermaid), the project status table and "Where to go next"; keep them in sync when parts are deployed.
 
 ---
 
@@ -342,7 +342,7 @@ The full end-to-end explanation (diagrams, every agent, chat grounding, what is 
   - **Healthy logs:** CloudWatch shows `LangFuse authentication check passed` and `Traces flushed successfully`.
   - **tfvars syntax:** every line needs `=`. `langfuse_host"…"` gives Terraform `Invalid block definition`, and then `deploy_all_lambdas.py` fails at the taint step.
   - **Known warning:** uploading the judge score logs `Failed to process score event … 'ProxyTracerProvider' object has no attribute 'sampler'`, a Langfuse SDK and Logfire clash. The judge still runs and traces still export.
-  - **Bug:** `backend/growth/observability.py` still uses `service_name="alex_retirement_agent"` (copied from Retirement), so Growth traces appear under the Retirement name.
+  - **Growth trace name:** fixed in code (`service_name="alex_growth_agent"`, commit `2694412`); live after the next `deploy_all_lambdas.py --package`. Until then Growth traces still appear as `alex_retirement_agent`.
 - **Guardrails and security commits (2026-11-24, pushed, NOT deployed yet; AWS still runs the old code):**
   - `src/guardrails.py` (in the shared `backend/database` package, so every agent and the API has it) holds `looks_like_injection`, `sanitize_user_input` and `truncate_response`. Self-check: `uv run -m src.guardrails`.
   - **Charter:** `validate_charts` keeps only charts with a known type and `{name, numeric value}` points. Guide 8's version expects `category` for bar charts; this frontend uses `name`.
